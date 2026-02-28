@@ -317,70 +317,49 @@ function AnalysisPanel({ menuId, year, refreshKey }: { menuId: number; year: str
     const firstDataYear = dataToParse[0]?.id?.substring(0, 2);
     const expectedYearPrefix = currentYear.slice(-2); // 2026 -> 26
 
-    console.log(`parseData called: year=${currentYear}, menuId=${targetMenuId}, dataLen=${dataToParse.length}, cacheKey=${cacheKey}, firstDataYear=${firstDataYear}`);
-
     // 如果数据年份与请求年份不匹配，直接丢弃不处理
     if (firstDataYear && firstDataYear !== expectedYearPrefix) {
-      console.warn(`⚠️ Data year mismatch! Expected year ${currentYear} (${expectedYearPrefix}), but got data starting with ${firstDataYear}`);
-      console.warn(`⚠️ Skipping parse, waiting for correct data...`);
-      // 清除所有可能被污染的缓存
+      console.warn(`Data year mismatch: expected ${currentYear}, got ${firstDataYear}xx`);
       parseCache.clear();
       setParsedData(null);
-      return; // 直接返回，不解析错误的数据
+      return;
     }
 
     const cached = parseCache.get(cacheKey);
 
     // 检查缓存是否有效
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-      console.log(`Using cached parse result for ${cacheKey}`);
       setParsedData(cached.data);
       return;
     }
 
-    console.log(`Parsing fresh data for ${cacheKey}...`);
-
     // 使用 setTimeout 避免阻塞 UI
     setIsParsing(true);
 
-    // 使用 requestIdleCallback 或 setTimeout 让 UI 先更新
     setTimeout(() => {
       try {
-        // 清除旧的统计信息
         statisticsManager.clear(targetMenuId);
-
-        // 设置数据到 dataLoader
         dataLoader.loadFromArray(dataToParse);
 
-        // 获取菜单配置
         const menuInfo = MENU_CONFIG[targetMenuId];
         if (!menuInfo || !menuInfo.titles) {
-          console.warn('Menu not found:', targetMenuId);
           setIsParsing(false);
           return;
         }
 
-        // 使用对应的解析器
         const parser = PARSER_MAP[targetMenuId];
         if (parser) {
           const menuName = menuInfo.name || `Menu${targetMenuId}`;
           const result = parser(menuInfo.titles, targetMenuId, menuName);
 
-          console.log(`Parse complete for ${cacheKey}: result length =`, result.length);
-
-          // 缓存结果
           parseCache.set(cacheKey, {
             data: result,
             timestamp: Date.now(),
           });
 
-          // 只有当数据版本没变时才设置结果
           if (currentDataVersionRef.current === dataVer) {
             setParsedData(result);
-            console.log(`Set parsedData for ${cacheKey}`);
           }
-        } else {
-          console.warn('Parser not found for menu:', targetMenuId);
         }
       } catch (err) {
         console.error('Parse error:', err);
@@ -394,24 +373,17 @@ function AnalysisPanel({ menuId, year, refreshKey }: { menuId: number; year: str
 
   // 年份变化时，清除该年份的所有解析缓存
   useEffect(() => {
-    console.log(`Year changed to: ${year}, clearing caches for this year`);
-    // 清除当前年份的所有缓存
     for (const [key] of parseCache.entries()) {
       if (key.startsWith(`${year}_`)) {
         parseCache.delete(key);
-        console.log(`Cleared cache: ${key}`);
       }
     }
-    // 同时清除旧的解析数据
     setParsedData(null);
   }, [year]);
 
   // 当数据或菜单变化时，重新解析
   useEffect(() => {
     if (data.length > 0) {
-      console.log(`Effect triggered: year=${year}, menuId=${menuId}, dataLen=${data.length}`);
-      // 清除旧的解析数据，防止显示错误年份的数据
-      setParsedData(null);
       currentDataVersionRef.current++;
       const dataVer = currentDataVersionRef.current;
       parseData(data, menuId, year, dataVer);
@@ -500,35 +472,46 @@ export function AnalysisView() {
       // 构建详细的成功消息
       const years = result.yearsAffected || [];
       const saveResults = result.saveResults || [];
+      const warnings = result.warnings || [];
       const totalNew = saveResults.reduce((sum: number, r: any) => sum + r.newCount, 0);
 
-      let message = `成功获取 ${result.total} 条数据`;
+      let message = `✓ 获取 ${result.total} 条`;
       if (years.length > 0) {
-        message += `，涉及 ${years.join(', ')} 年`;
+        message += ` (${years.join(', ')})`;
       }
       if (totalNew > 0) {
-        message += `，新增 ${totalNew} 条记录`;
+        message += `，新增 ${totalNew} 条`;
       }
-      message += '！';
+
+      // 添加断层警告
+      if (warnings.length > 0) {
+        message += ` | ⚠️ ${warnings.join('; ')}`;
+      }
+
+      // 添加 Git 提交状态
+      if (result.gitResult?.pushed) {
+        message += ` | 已推送到 Gitee`;
+      }
 
       setFetchMessage(message);
 
       // 如果有新年份，自动切换到最新年份
       if (years.length > 0) {
-        const latestYear = years[0]; // yearsAffected 是降序排列的
+        const latestYear = years[0];
         if (latestYear > year) {
           setYear(latestYear);
         }
       }
 
-      // 强制刷新数据（增加 key 触发 hooks 重新获取）
+      // 强制刷新数据
       setDataUpdateKey(prev => prev + 1);
 
-      // 5秒后清除消息
-      setTimeout(() => setFetchMessage(''), 5000);
+      // 警告消息显示更久
+      const timeout = warnings.length > 0 ? 10000 : 5000;
+      setTimeout(() => setFetchMessage(''), timeout);
     } catch (error) {
       console.error('Fetch error:', error);
-      setFetchMessage(`获取失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      setFetchMessage(`✗ 获取失败: ${error instanceof Error ? error.message : '未知错误'}`);
       setTimeout(() => setFetchMessage(''), 5000);
     } finally {
       setIsFetching(false);
