@@ -7,9 +7,9 @@ import path from 'path';
  */
 export async function GET(
   request: Request,
-  { params }: { params: { year: string } }
+  { params }: { params: Promise<{ year: string }> }
 ) {
-  const year = params.year;
+  const { year } = await params;
 
   try {
     const filePath = path.join(process.cwd(), 'public', 'data', `${year}.json`);
