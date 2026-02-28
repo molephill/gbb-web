@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(rm:*)",
+      "Bash(cmd.exe:*)",
+      "Bash(tasklist:*)",
+      "Bash(taskkill:*)",
+      "Bash(set PUPPETEER_SKIP_DOWNLOAD=true:*)",
+      "Bash(npm_config_PUPPETEER_SKIP_DOWNLOAD=true npm install:*)",
+      "Bash(ls:*)",
+      "Bash(curl:*)",
+      "Bash(npm run:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx electron:*)",
+      "Bash(set:*)"
+    ]
+  }
+}

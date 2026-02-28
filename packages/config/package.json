@@ -1,0 +1,9 @@
+{
+  "name": "@gbb/config",
+  "version": "1.0.0",
+  "description": "GBB 配置文件",
+  "files": ["*.json"],
+  "scripts": {
+    "clean": "echo 'No build needed for config package'"
+  }
+}

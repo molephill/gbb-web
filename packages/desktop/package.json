@@ -1,0 +1,48 @@
+{
+  "name": "@gbb/desktop",
+  "version": "1.0.0",
+  "description": "GBB 桌面应用 - Electron",
+  "main": "dist/main/index.js",
+  "scripts": {
+    "dev": "pnpm run build && electron .",
+    "build": "tsc -p tsconfig.main.json && tsc -p tsconfig.preload.json",
+    "clean": "rm -rf dist out",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "dependencies": {
+    "@gbb/core": "*",
+    "@gbb/config": "*",
+    "puppeteer": "^24.1.1",
+    "simple-git": "^3.27.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.17",
+    "electron": "^34.2.0",
+    "electron-builder": "^25.1.8",
+    "typescript": "^5.7.3"
+  },
+  "build": {
+    "appId": "com.gbb.app",
+    "productName": "GBB 彩票分析",
+    "directories": {
+      "output": "out"
+    },
+    "files": [
+      "dist/**/*",
+      "node_modules/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.png"
+    },
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.utilities"
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "Utility"
+    }
+  }
+}
