@@ -45,7 +45,6 @@ export class Parse1 extends ParserBase {
               k,
               title,
               draw,
-              this.rootMenu?.name || '',
               this.getRowName(title),
               this.getColName(title, k)
             );
@@ -78,7 +77,6 @@ export class Parse1 extends ParserBase {
               k,
               title,
               draw,
-              this.rootMenu?.name || '',
               this.getRowName(title),
               this.getColName(title, k)
             );
@@ -94,7 +92,8 @@ export class Parse1 extends ParserBase {
 /**
  * 创建解析器实例并解析
  */
-export function parse1(titles: SubMenuConfig[], menuId: number = 1): ParsedData {
+export function parse1(titles: SubMenuConfig[], menuId: number = 1, menuName: string = ''): ParsedData {
   const parser = new Parse1();
+  parser.setMenuName(menuName);
   return parser.parse(titles, menuId);
 }

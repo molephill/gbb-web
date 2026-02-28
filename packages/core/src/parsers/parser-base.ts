@@ -10,6 +10,7 @@ export abstract class ParserBase {
   protected allData: LotteryDraw[] = [];
   protected currentMenuId = 0;
   protected rootMenu: SubMenuConfig | null = null;
+  protected menuName = '';
 
   constructor() {
     this.allData = dataLoader.getAllData();
@@ -48,7 +49,6 @@ export abstract class ParserBase {
     k: number,
     menu: SubMenuConfig,
     draw: LotteryDraw,
-    menuName: string,
     rowName: string,
     colName: string
   ): void {
@@ -56,7 +56,7 @@ export abstract class ParserBase {
       this.currentMenuId,
       menu.id,
       k,
-      `【${this.rootMenu?.name}】-【${rowName}】-【${colName}】`,
+      `【${this.menuName}】-【${rowName}】-【${colName}】`,
       menu.id > 2 ? 'left' : 'right'
     );
 
@@ -115,5 +115,12 @@ export abstract class ParserBase {
    */
   protected setRootMenu(menu: SubMenuConfig): void {
     this.rootMenu = menu;
+  }
+
+  /**
+   * 设置菜单名称
+   */
+  setMenuName(name: string): void {
+    this.menuName = name;
   }
 }

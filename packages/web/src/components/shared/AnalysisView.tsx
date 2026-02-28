@@ -17,7 +17,7 @@ const AVAILABLE_YEARS = [
 ];
 
 // 解析器映射
-const PARSER_MAP: Record<number, (titles: SubMenuConfig[]) => CellValue[][][][]> = {
+const PARSER_MAP: Record<number, (titles: SubMenuConfig[], menuId: number, menuName: string) => CellValue[][][][]> = {
   1: parse1,
   2: parse2,
   3: parse3,
@@ -40,7 +40,7 @@ const MENU_CONFIG = MENU_FULL_CONFIG.reduce((acc: any, item: MenuConfig) => {
 // 菜单按钮列表（按 ID 排序）
 const MENU_BUTTONS = MENU_FULL_CONFIG
   .filter((m: MenuConfig) => m.titles && m.titles.length > 0)
-  .sort((a: MenuConfig, b: MenuConfig) => a.sort - b.sort);
+  .sort((a: MenuConfig, b: MenuConfig) => a.id - b.id);
 
 /**
  * 渲染单元格内容
@@ -63,17 +63,17 @@ function getCellStyle(cell: CellValue, isFixed = false): string {
 /**
  * 热门统计面板 - 可折叠
  */
-function StatisticsInfoPanel({ menuId, year }: { menuId: number; year: string }) {
+function StatisticsInfoPanel({ menuId, year, dataKey }: { menuId: number; year: string; dataKey?: number }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [stats, setStats] = useState<ResultInfo[]>([]);
 
-  const allStats = statisticsManager.getAllStatistics(menuId);
-
-  // 按中奖次数降序排序，取前10
-  const sorted = useMemo(() => allStats
-    .filter(s => s.scoreCount > 0)
-    .sort((a, b) => b.scoreCount - a.scoreCount)
-    .slice(0, 10), [allStats]);
+  // 获取统计数据并排序，使用 dataKey 确保数据更新时重新计算
+  const sorted = useMemo(() => {
+    const allStats = statisticsManager.getAllStatistics(menuId);
+    return allStats
+      .filter(s => s.scoreCount > 0)
+      .sort((a, b) => b.scoreCount - a.scoreCount)
+      .slice(0, 10);
+  }, [menuId, dataKey]);
 
   if (sorted.length === 0) {
     return null;
@@ -103,17 +103,17 @@ function StatisticsInfoPanel({ menuId, year }: { menuId: number; year: string })
             <TableBody>
               {sorted.map((stat, idx) => (
                 <TableRow key={idx}>
-                  <TableCell className="text-xs truncate max-w-[200px">
-                    {stat.title}
+                  <TableCell className="text-xs truncate max-w-[200px]" title={stat.title}>
+                    {stat.title || '-'}
                   </TableCell>
                   <TableCell className="text-xs text-center font-bold text-red-600">
-                    {stat.scoreCount}
+                    {stat.scoreCount ?? 0}
                   </TableCell>
                   <TableCell className="text-xs text-center text-orange-600">
-                    {stat.gapCount}
+                    {stat.gapCount ?? 0}
                   </TableCell>
                   <TableCell className="text-xs text-center text-purple-600">
-                    {stat.maxGapCount}
+                    {stat.maxGapCount ?? 0}
                   </TableCell>
                 </TableRow>
               ))}
@@ -234,7 +234,7 @@ function AnalysisTable({ parsedData, titles, menuId, year }: {
                         <span>{colName}</span>
                         {stats && (
                           <span className="text-[10px] text-orange-600 font-semibold">
-                            {stats.gapCount || 0}/{stats.maxGapCount || 0}
+                            {stats.gapCount ?? 0}/{stats.maxGapCount ?? 0}
                           </span>
                         )}
                       </div>
@@ -256,7 +256,6 @@ function AnalysisTable({ parsedData, titles, menuId, year }: {
           </tbody>
         </table>
       </div>
-      <StatisticsInfoPanel menuId={menuId} year={year} />
     </div>
   );
 }
@@ -288,7 +287,8 @@ function AnalysisPanel({ menuId, year }: { menuId: number; year: string }) {
       const parser = PARSER_MAP[menuId];
       if (parser) {
         try {
-          const result = parser(menuInfo.titles, menuId);
+          const menuName = menuInfo.name || `Menu${menuId}`;
+          const result = parser(menuInfo.titles, menuId, menuName);
           setParsedData(result);
         } catch (err) {
           console.error('Parse error:', err);
@@ -333,6 +333,9 @@ function AnalysisPanel({ menuId, year }: { menuId: number; year: string }) {
           menuId={menuId}
           year={year}
         />
+      </div>
+      <div className="flex-shrink-0 p-4 pt-0">
+        <StatisticsInfoPanel menuId={menuId} year={year} dataKey={parsedData?.length} />
       </div>
     </div>
   );

@@ -5,7 +5,9 @@ import { ParserBase } from './parser-base';
  * 解析器9 - 质合/邻隔
  */
 export class Parse9 extends ParserBase {
-  parse(titles: SubMenuConfig[], menuId: number = 1): ParsedData {
+  parse(titles: SubMenuConfig[], menuId: number = 9): ParsedData {
+    this.currentMenuId = menuId;
+
     const out: ParsedData = [];
 
     for (const draw of this.allData) {
@@ -43,7 +45,6 @@ export class Parse9 extends ParserBase {
                   k,
                   title,
                   draw,
-                  this.rootMenu?.name || '',
                   this.getRowName(title),
                   this.getColName(title, k)
                 );
@@ -69,7 +70,6 @@ export class Parse9 extends ParserBase {
                   k,
                   title,
                   draw,
-                  this.rootMenu?.name || '',
                   this.getRowName(title),
                   this.getColName(title, k)
                 );
@@ -103,7 +103,6 @@ export class Parse9 extends ParserBase {
                   k,
                   title,
                   draw,
-                  this.rootMenu?.name || '',
                   this.getRowName(title),
                   this.getColName(title, k)
                 );
@@ -129,7 +128,6 @@ export class Parse9 extends ParserBase {
                   k,
                   title,
                   draw,
-                  this.rootMenu?.name || '',
                   this.getRowName(title),
                   this.getColName(title, k)
                 );
@@ -144,7 +142,8 @@ export class Parse9 extends ParserBase {
   }
 }
 
-export function parse9(titles: SubMenuConfig[]): ParsedData {
+export function parse9(titles: SubMenuConfig[], menuId: number = 9, menuName: string = ''): ParsedData {
   const parser = new Parse9();
-  return parser.parse(titles);
+  parser.setMenuName(menuName);
+  return parser.parse(titles, menuId);
 }

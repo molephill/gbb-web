@@ -5,7 +5,9 @@ import { ParserBase } from './parser-base';
  * 解析器4 - 排序模式
  */
 export class Parse4 extends ParserBase {
-  parse(titles: SubMenuConfig[], menuId: number = 1): ParsedData {
+  parse(titles: SubMenuConfig[], menuId: number = 4): ParsedData {
+    this.currentMenuId = menuId;
+
     const out: ParsedData = [];
 
     for (const draw of this.allData) {
@@ -60,7 +62,6 @@ export class Parse4 extends ParserBase {
                 k,
                 title,
                 draw,
-                this.rootMenu?.name || '',
                 this.getRowName(title),
                 this.getColName(title, k)
               );
@@ -78,7 +79,6 @@ export class Parse4 extends ParserBase {
                 k,
                 title,
                 draw,
-                this.rootMenu?.name || '',
                 this.getRowName(title),
                 this.getColName(title, k)
               );
@@ -92,7 +92,8 @@ export class Parse4 extends ParserBase {
   }
 }
 
-export function parse4(titles: SubMenuConfig[]): ParsedData {
+export function parse4(titles: SubMenuConfig[], menuId: number = 4, menuName: string = ''): ParsedData {
   const parser = new Parse4();
-  return parser.parse(titles);
+  parser.setMenuName(menuName);
+  return parser.parse(titles, menuId);
 }

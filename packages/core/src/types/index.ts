@@ -88,6 +88,8 @@ export interface MenuConfig {
   id: number;
   /** 菜单名称 */
   name: string;
+  /** 排序 */
+  sort?: number;
   /** 子菜单列表 */
   titles: SubMenuConfig[];
 }

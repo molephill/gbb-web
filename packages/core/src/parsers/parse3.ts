@@ -5,7 +5,9 @@ import { ParserBase } from './parser-base';
  * 解析器3 - 三区比/三路比
  */
 export class Parse3 extends ParserBase {
-  parse(titles: SubMenuConfig[], menuId: number = 1): ParsedData {
+  parse(titles: SubMenuConfig[], menuId: number = 3): ParsedData {
+    this.currentMenuId = menuId;
+
     const out: ParsedData = [];
 
     for (const draw of this.allData) {
@@ -61,7 +63,6 @@ export class Parse3 extends ParserBase {
                 k,
                 title,
                 draw,
-                this.rootMenu?.name || '',
                 this.getRowName(title),
                 this.getColName(title, k)
               );
@@ -92,7 +93,6 @@ export class Parse3 extends ParserBase {
                   k,
                   title,
                   draw,
-                  this.rootMenu?.name || '',
                   this.getRowName(title),
                   this.getColName(title, k)
                 );
@@ -115,7 +115,6 @@ export class Parse3 extends ParserBase {
                   k,
                   title,
                   draw,
-                  this.rootMenu?.name || '',
                   this.getRowName(title),
                   this.getColName(title, k)
                 );
@@ -130,7 +129,8 @@ export class Parse3 extends ParserBase {
   }
 }
 
-export function parse3(titles: SubMenuConfig[]): ParsedData {
+export function parse3(titles: SubMenuConfig[], menuId: number = 3, menuName: string = ''): ParsedData {
   const parser = new Parse3();
-  return parser.parse(titles);
+  parser.setMenuName(menuName);
+  return parser.parse(titles, menuId);
 }

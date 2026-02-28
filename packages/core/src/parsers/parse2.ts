@@ -6,7 +6,9 @@ import { ParserBase } from './parser-base';
  * 解析特定组合是否全部出现
  */
 export class Parse2 extends ParserBase {
-  parse(titles: SubMenuConfig[], menuId: number = 1): ParsedData {
+  parse(titles: SubMenuConfig[], menuId: number = 2): ParsedData {
+    this.currentMenuId = menuId;
+
     const out: ParsedData = [];
 
     for (const draw of this.allData) {
@@ -68,7 +70,6 @@ export class Parse2 extends ParserBase {
                 k,
                 title,
                 draw,
-                this.rootMenu?.name || '',
                 this.getRowName(title),
                 this.getColName(title, k)
               );
@@ -100,7 +101,6 @@ export class Parse2 extends ParserBase {
                   k,
                   title,
                   draw,
-                  this.rootMenu?.name || '',
                   this.getRowName(title),
                   this.getColName(title, k)
                 );
@@ -125,7 +125,6 @@ export class Parse2 extends ParserBase {
                   k,
                   title,
                   draw,
-                  this.rootMenu?.name || '',
                   this.getRowName(title),
                   this.getColName(title, k)
                 );
@@ -143,7 +142,8 @@ export class Parse2 extends ParserBase {
 /**
  * 创建解析器实例并解析
  */
-export function parse2(titles: SubMenuConfig[]): ParsedData {
+export function parse2(titles: SubMenuConfig[], menuId: number = 2, menuName: string = ''): ParsedData {
   const parser = new Parse2();
-  return parser.parse(titles);
+  parser.setMenuName(menuName);
+  return parser.parse(titles, menuId);
 }

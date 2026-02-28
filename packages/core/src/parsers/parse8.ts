@@ -5,7 +5,9 @@ import { ParserBase } from './parser-base';
  * 解析器8 - 豹子/二连
  */
 export class Parse8 extends ParserBase {
-  parse(titles: SubMenuConfig[], menuId: number = 1): ParsedData {
+  parse(titles: SubMenuConfig[], menuId: number = 8): ParsedData {
+    this.currentMenuId = menuId;
+
     const out: ParsedData = [];
     const twoMoreMap = new Map<number, boolean>();
     const twoMap = new Map<number, boolean>();
@@ -53,7 +55,6 @@ export class Parse8 extends ParserBase {
                 k,
                 titles[j],
                 draw,
-                this.rootMenu?.name || '',
                 this.getRowName(titles[j]),
                 this.getColName(titles[j], k)
               );
@@ -78,7 +79,6 @@ export class Parse8 extends ParserBase {
                 k,
                 titles[j],
                 draw,
-                this.rootMenu?.name || '',
                 this.getRowName(titles[j]),
                 this.getColName(titles[j], k)
               );
@@ -112,7 +112,6 @@ export class Parse8 extends ParserBase {
           0,
           titles[j],
           draw,
-          this.rootMenu?.name || '',
           this.getRowName(titles[j]),
           '统计'
         );
@@ -123,7 +122,8 @@ export class Parse8 extends ParserBase {
   }
 }
 
-export function parse8(titles: SubMenuConfig[]): ParsedData {
+export function parse8(titles: SubMenuConfig[], menuId: number = 8, menuName: string = ''): ParsedData {
   const parser = new Parse8();
-  return parser.parse(titles);
+  parser.setMenuName(menuName);
+  return parser.parse(titles, menuId);
 }

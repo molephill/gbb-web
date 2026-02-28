@@ -5,7 +5,9 @@ import { ParserBase } from './parser-base';
  * 解析器5 - 大小组合
  */
 export class Parse5 extends ParserBase {
-  parse(titles: SubMenuConfig[], menuId: number = 1): ParsedData {
+  parse(titles: SubMenuConfig[], menuId: number = 5): ParsedData {
+    this.currentMenuId = menuId;
+
     const out: ParsedData = [];
 
     for (const draw of this.allData) {
@@ -54,7 +56,6 @@ export class Parse5 extends ParserBase {
               k,
               title,
               draw,
-              this.rootMenu?.name || '',
               this.getRowName(title),
               this.getColName(title, k)
             );
@@ -67,7 +68,8 @@ export class Parse5 extends ParserBase {
   }
 }
 
-export function parse5(titles: SubMenuConfig[]): ParsedData {
+export function parse5(titles: SubMenuConfig[], menuId: number = 5, menuName: string = ''): ParsedData {
   const parser = new Parse5();
-  return parser.parse(titles);
+  parser.setMenuName(menuName);
+  return parser.parse(titles, menuId);
 }

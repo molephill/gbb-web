@@ -14,7 +14,8 @@
       "Bash(npx tsc:*)",
       "Bash(npx electron:*)",
       "Bash(set:*)",
-      "Bash(do sed:*)"
+      "Bash(do sed:*)",
+      "Bash(netstat -ano)"
     ]
   }
 }

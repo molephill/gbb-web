@@ -70,6 +70,14 @@ class StatisticsManager {
         placement,
       };
       menuStatistics.set(index, kStatistics);
+    } else {
+      // 更新 title 和 placement，确保使用最新的值
+      if (!kStatistics.title || kStatistics.title.startsWith('【】')) {
+        kStatistics.title = title;
+      }
+      if (!kStatistics.placement) {
+        kStatistics.placement = placement;
+      }
     }
 
     return kStatistics;
@@ -101,9 +109,9 @@ class StatisticsManager {
 
       if (gapTime > maxGapTime) {
         yearObj.maxGapCount = gapTime;
-        yearObj.maxGapStartTime = yearObj.gapStartTime || '';
+        yearObj.maxGapStartTime = yearObj.maxGapStartTime || yearObj.gapStartTime || '';
         yearObj.maxGapEndTime = drawData.draw_date;
-        yearObj.maxGapStartId = yearObj.gapStartId || '';
+        yearObj.maxGapStartId = yearObj.maxGapStartId || yearObj.gapStartId || '';
         yearObj.maxGapEndId = drawData.id;
       }
       yearObj.gapCount = 0;

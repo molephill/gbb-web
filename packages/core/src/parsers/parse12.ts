@@ -5,7 +5,9 @@ import { ParserBase } from './parser-base';
  * 解析器12 - 另一种包含模式
  */
 export class Parse12 extends ParserBase {
-  parse(titles: SubMenuConfig[], menuId: number = 1): ParsedData {
+  parse(titles: SubMenuConfig[], menuId: number = 12): ParsedData {
+    this.currentMenuId = menuId;
+
     const out: ParsedData = [];
 
     for (const draw of this.allData) {
@@ -34,7 +36,6 @@ export class Parse12 extends ParserBase {
               k,
               title,
               draw,
-              this.rootMenu?.name || '',
               this.getRowName(title),
               this.getColName(title, k)
             );
@@ -47,7 +48,8 @@ export class Parse12 extends ParserBase {
   }
 }
 
-export function parse12(titles: SubMenuConfig[]): ParsedData {
+export function parse12(titles: SubMenuConfig[], menuId: number = 12, menuName: string = ''): ParsedData {
   const parser = new Parse12();
-  return parser.parse(titles);
+  parser.setMenuName(menuName);
+  return parser.parse(titles, menuId);
 }

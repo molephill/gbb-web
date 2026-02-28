@@ -34,7 +34,6 @@ export class Parse10 extends ParserBase {
               k,
               title,
               draw,
-              this.rootMenu?.name || '',
               this.getRowName(title),
               this.getColName(title, k)
             );
