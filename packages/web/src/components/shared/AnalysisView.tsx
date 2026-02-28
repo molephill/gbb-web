@@ -68,10 +68,10 @@ function getCellStyle(cell: CellValue, isFixed = false): string {
 }
 
 /**
- * 热门统计面板 - 可折叠
+ * 热门统计面板 - 紧凑可折叠
  */
 function StatisticsInfoPanel({ menuId, year, dataKey }: { menuId: number; year: string; dataKey?: number }) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(false); // 默认折叠
 
   // 获取统计数据并排序，使用 dataKey 确保数据更新时重新计算
   const sorted = useMemo(() => {
@@ -87,45 +87,26 @@ function StatisticsInfoPanel({ menuId, year, dataKey }: { menuId: number; year: 
   }
 
   return (
-    <Card className="mt-4 border-2 border-blue-300">
-      <CardHeader className="py-2 px-3">
+    <Card className="mt-2 border border-blue-200">
+      <CardHeader className="py-1 px-2">
         <div className="flex items-center justify-between cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
-          <CardTitle className="text-sm">热门统计 (TOP 10)</CardTitle>
-          <span className="text-xs text-muted-foreground">
+          <CardTitle className="text-xs">热门统计 TOP10</CardTitle>
+          <span className="text-[10px] text-muted-foreground">
             {isOpen ? '▼' : '▶'}
           </span>
         </div>
       </CardHeader>
       {isOpen && (
-        <CardContent className="pt-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="text-xs">项目</TableHead>
-                <TableHead className="text-xs text-center">中奖</TableHead>
-                <TableHead className="text-xs text-center">当前间隔</TableHead>
-                <TableHead className="text-xs text-center">最大间隔</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sorted.map((stat, idx) => (
-                <TableRow key={idx}>
-                  <TableCell className="text-xs truncate max-w-[200px]" title={stat.title}>
-                    {stat.title || '-'}
-                  </TableCell>
-                  <TableCell className="text-xs text-center font-bold text-red-600">
-                    {stat.scoreCount ?? 0}
-                  </TableCell>
-                  <TableCell className="text-xs text-center text-orange-600">
-                    {stat.gapCount ?? 0}
-                  </TableCell>
-                  <TableCell className="text-xs text-center text-purple-600">
-                    {stat.maxGapCount ?? 0}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+        <CardContent className="pt-0 pb-2 px-2">
+          <div className="grid grid-cols-2 gap-1 text-[10px]">
+            {sorted.map((stat, idx) => (
+              <div key={idx} className="flex items-center gap-1 truncate" title={stat.title}>
+                <span className="truncate flex-1" title={stat.title}>{stat.title?.substring(0, 8) || '-'}</span>
+                <span className="text-red-600 font-medium">{stat.scoreCount ?? 0}</span>
+                <span className="text-orange-600">{stat.gapCount ?? 0}</span>
+              </div>
+            ))}
+          </div>
         </CardContent>
       )}
     </Card>
@@ -200,9 +181,9 @@ function AnalysisTable({ parsedData, titles, menuId, year }: {
     return (
       <td
         key={`${titleIdx}-${cellIdx}`}
-        className={`text-sm font-mono p-2 border-2 border-gray-300 ${
+        className={`text-xs font-mono px-2 py-1 border border-gray-300 ${
           isDanger ? 'bg-red-500 text-white font-bold' : 'bg-white text-gray-800'
-        } ${isFixed ? 'sticky left-0 z-10 bg-blue-50 border-r-4 border-gray-500 shadow-md' : ''}`}
+        } ${isFixed ? 'sticky left-0 z-10 bg-blue-50 border-r-2 border-gray-400 shadow-sm' : ''}`}
         style={isFixed ? { left: `${leftPos}px` } : undefined}
       >
         {cellValue}
@@ -224,7 +205,7 @@ function AnalysisTable({ parsedData, titles, menuId, year }: {
                   <th
                     key={idx}
                     colSpan={colCount}
-                    className="text-center text-sm font-semibold border-2 border-gray-400 bg-muted px-2 py-2"
+                    className="text-center text-xs font-semibold border border-gray-400 bg-muted px-2 py-1"
                   >
                     {headerText}
                   </th>
@@ -244,15 +225,15 @@ function AnalysisTable({ parsedData, titles, menuId, year }: {
                   return (
                     <th
                       key={`${titleIdx}-${cellIdx}`}
-                      className={`text-center text-xs font-medium border-2 border-gray-400 bg-muted/80 p-1 relative ${
-                        isFixed ? 'sticky left-0 z-30 bg-blue-100 border-r-4 border-gray-500 shadow-md' : ''
+                      className={`text-center text-[11px] font-medium border border-gray-400 bg-muted/80 px-1 py-0.5 relative ${
+                        isFixed ? 'sticky left-0 z-30 bg-blue-100 border-r-2 border-gray-400 shadow-sm' : ''
                       }`}
-                      style={isFixed ? { left: `${leftPos}px`, minWidth: getColumnWidth(titleIdx, cellIdx) } : { minWidth: 70 }}
+                      style={isFixed ? { left: `${leftPos}px`, minWidth: getColumnWidth(titleIdx, cellIdx) } : { minWidth: 60 }}
                     >
-                      <div className="flex flex-col items-center gap-1">
-                        <span>{colName}</span>
+                      <div className="flex flex-col items-center leading-tight">
+                        <span className="leading-none">{colName}</span>
                         {stats && (
-                          <span className="text-[10px] text-orange-600 font-semibold">
+                          <span className="text-[9px] text-orange-600 font-semibold leading-none mt-0.5">
                             {stats.gapCount ?? 0}/{stats.maxGapCount ?? 0}
                           </span>
                         )}
@@ -275,39 +256,44 @@ function AnalysisTable({ parsedData, titles, menuId, year }: {
           </tbody>
         </table>
       </div>
-      {/* 分页控件 */}
+      {/* 分页控件 - 紧凑版 */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 p-2 border-t bg-muted/50">
+        <div className="flex items-center justify-center gap-1 px-2 py-1 border-t bg-muted/30">
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
+            className="h-7 px-2 text-xs"
             onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
             disabled={currentPage === 1}
           >
-            上一页
+            ‹
           </Button>
-          <span className="text-sm">
-            {currentPage} / {totalPages} ({sortedData.length} 条)
+          <span className="text-xs px-2">
+            {currentPage}/{totalPages}
           </span>
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
+            className="h-7 px-2 text-xs"
             onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
             disabled={currentPage === totalPages}
           >
-            下一页
+            ›
           </Button>
           <select
             value={currentPage}
             onChange={(e) => setCurrentPage(Number(e.target.value))}
-            className="ml-2 px-2 py-1 text-sm border rounded"
+            className="ml-1 px-1 py-0.5 text-xs bg-background border rounded"
           >
-            {Array.from({ length: totalPages }, (_, i) => (
+            {Array.from({ length: Math.min(totalPages, 20) }, (_, i) => (
               <option key={i + 1} value={i + 1}>
-                第 {i + 1} 页
+                {i + 1}
               </option>
             ))}
           </select>
+          <span className="text-[10px] text-muted-foreground">
+            共{sortedData.length}条
+          </span>
         </div>
       )}
     </div>
@@ -429,7 +415,7 @@ function AnalysisPanel({ menuId, year, refreshKey }: { menuId: number; year: str
   const menuInfo = MENU_CONFIG[menuId];
   return (
     <div className="h-full flex flex-col">
-      <div className="flex-1 overflow-auto p-4">
+      <div className="flex-1 overflow-auto p-2">
         <AnalysisTable
           parsedData={parsedData}
           titles={menuInfo.titles}
@@ -437,7 +423,7 @@ function AnalysisPanel({ menuId, year, refreshKey }: { menuId: number; year: str
           year={year}
         />
       </div>
-      <div className="flex-shrink-0 p-4 pt-0">
+      <div className="flex-shrink-0 px-2 pb-1">
         <StatisticsInfoPanel menuId={menuId} year={year} dataKey={parsedData?.length} />
       </div>
     </div>
@@ -570,11 +556,11 @@ export function AnalysisView() {
       {/* 内容区域 */}
       <div className="flex-1 overflow-auto">
         {activeMenu === 0 ? (
-          <div className="h-full flex flex-col p-4">
-            <div className="flex-shrink-0 mb-3">
-              <h2 className="text-lg font-bold">{year}年 开奖数据</h2>
+          <div className="h-full flex flex-col p-2">
+            <div className="flex-shrink-0 mb-2 px-1">
+              <h2 className="text-sm font-bold">{year}年 开奖数据</h2>
             </div>
-            <div className="flex-1 overflow-auto border rounded-lg">
+            <div className="flex-1 overflow-auto border rounded">
               <SimpleDataList year={year} refreshKey={dataUpdateKey} />
             </div>
           </div>
@@ -610,14 +596,14 @@ function SimpleDataList({ year, refreshKey }: { year: string; refreshKey?: numbe
       <table className="w-full border-collapse">
         <thead className="sticky top-0 z-20 bg-muted">
           <tr>
-            <TableHead className="sticky left-0 z-30 w-[120px] border-2 border-gray-400 bg-blue-50">日期</TableHead>
-            <TableHead className="sticky left-[120px] z-30 w-[80px] border-2 border-gray-400 bg-blue-50">期号</TableHead>
-            <TableHead className="w-[60px] border-2 border-gray-400">第1位</TableHead>
-            <TableHead className="w-[60px] border-2 border-gray-400">第2位</TableHead>
-            <TableHead className="w-[60px] border-2 border-gray-400">第3位</TableHead>
-            <TableHead className="w-[60px] border-2 border-gray-400">第4位</TableHead>
-            <TableHead className="w-[100px] border-2 border-gray-400">大小分布</TableHead>
-            <TableHead className="w-[100px] border-2 border-gray-400">单双分布</TableHead>
+            <TableHead className="sticky left-0 z-30 w-[100px] border border-gray-400 bg-blue-50 text-[11px] py-1">日期</TableHead>
+            <TableHead className="sticky left-[100px] z-30 w-[70px] border border-gray-400 bg-blue-50 text-[11px] py-1">期号</TableHead>
+            <TableHead className="w-[50px] border border-gray-400 text-[11px] py-1">第1位</TableHead>
+            <TableHead className="w-[50px] border border-gray-400 text-[11px] py-1">第2位</TableHead>
+            <TableHead className="w-[50px] border border-gray-400 text-[11px] py-1">第3位</TableHead>
+            <TableHead className="w-[50px] border border-gray-400 text-[11px] py-1">第4位</TableHead>
+            <TableHead className="w-[80px] border border-gray-400 text-[11px] py-1">大小</TableHead>
+            <TableHead className="w-[80px] border border-gray-400 text-[11px] py-1">单双</TableHead>
           </tr>
         </thead>
         <TableBody>
@@ -630,19 +616,19 @@ function SimpleDataList({ year, refreshKey }: { year: string; refreshKey?: numbe
 
             return (
               <TableRow key={draw.id} className="hover:bg-gray-50">
-                <TableCell className="sticky left-0 z-10 text-xs border border-gray-300 bg-blue-50 border-r-2 border-gray-400">
+                <TableCell className="sticky left-0 z-10 text-[11px] border border-gray-300 bg-blue-50 border-r border-gray-400 py-1">
                   {draw.draw_date}
                 </TableCell>
-                <TableCell className="sticky left-[120px] z-10 text-xs border border-gray-300 bg-blue-50 border-r-2 border-gray-400">
+                <TableCell className="sticky left-[100px] z-10 text-[11px] border border-gray-300 bg-blue-50 border-r border-gray-400 py-1">
                   {draw.id}
                 </TableCell>
                 {results.map((r, i) => (
-                  <TableCell key={i} className="text-center text-sm font-mono border border-gray-300">
+                  <TableCell key={i} className="text-center text-xs font-mono border border-gray-300 py-1">
                     {r}
                   </TableCell>
                 ))}
-                <TableCell className="text-xs border border-gray-300">大{bigCount}小{smallCount}</TableCell>
-                <TableCell className="text-xs border border-gray-300">单{oddCount}双{evenCount}</TableCell>
+                <TableCell className="text-[11px] border border-gray-300 py-1">大{bigCount}小{smallCount}</TableCell>
+                <TableCell className="text-[11px] border border-gray-300 py-1">单{oddCount}双{evenCount}</TableCell>
               </TableRow>
             );
           })}
