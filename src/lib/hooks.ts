@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import type { LotteryDraw } from '@gbb/core';
+import type { LotteryDraw } from './core';
 
 /**
  * 从官方 API 获取最新数据

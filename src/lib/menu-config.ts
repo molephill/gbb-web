@@ -1,4 +1,4 @@
-import type { MenuConfig } from '@gbb/core';
+import type { MenuConfig } from '../lib/core';
 
 /**
  * 完整的菜单配置
