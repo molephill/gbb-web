@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,13 @@ const PARSER_MAP: Record<number, (titles: SubMenuConfig[], menuId: number, menuN
   9: parse9,
   12: parse12,
 };
+
+// 解析结果缓存：key = `${year}_${menuId}`, value = ParsedData
+const parseCache = new Map<string, { data: CellValue[][][][]; timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5分钟缓存
+
+// 数据版本标记，用于检测数据是否真的变化了
+let dataVersion = 0;
 
 // 从菜单配置中提取菜单信息
 const MENU_CONFIG = MENU_FULL_CONFIG.reduce((acc: any, item: MenuConfig) => {
@@ -126,7 +133,7 @@ function StatisticsInfoPanel({ menuId, year, dataKey }: { menuId: number; year: 
 }
 
 /**
- * 数据表格组件 - 显示趋势图
+ * 数据表格组件 - 显示趋势图（带分页优化）
  * 支持固定左侧列和明显分割线
  */
 function AnalysisTable({ parsedData, titles, menuId, year }: {
@@ -135,8 +142,20 @@ function AnalysisTable({ parsedData, titles, menuId, year }: {
   menuId: number;
   year: string;
 }) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 100; // 每页显示100条
+
   // 数据按日期从小到大排序
   const sortedData = useMemo(() => [...parsedData], [parsedData]);
+
+  // 分页数据
+  const paginatedData = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    return sortedData.slice(startIndex, endIndex);
+  }, [sortedData, currentPage]);
+
+  const totalPages = Math.ceil(sortedData.length / pageSize);
 
   // 定义每列的宽度（与表头一致）
   const getColumnWidth = (titleIdx: number, cellIdx: number): number => {
@@ -245,7 +264,7 @@ function AnalysisTable({ parsedData, titles, menuId, year }: {
             </tr>
           </thead>
           <tbody>
-            {sortedData.map((rowData, rowIdx) => (
+            {paginatedData.map((rowData, rowIdx) => (
               <tr key={rowIdx} className="hover:bg-gray-50">
                 {rowData.map((titleData, titleIdx) => {
                   const cells = titleData[0] || [];
@@ -256,48 +275,123 @@ function AnalysisTable({ parsedData, titles, menuId, year }: {
           </tbody>
         </table>
       </div>
+      {/* 分页控件 */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 p-2 border-t bg-muted/50">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+          >
+            上一页
+          </Button>
+          <span className="text-sm">
+            {currentPage} / {totalPages} ({sortedData.length} 条)
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+          >
+            下一页
+          </Button>
+          <select
+            value={currentPage}
+            onChange={(e) => setCurrentPage(Number(e.target.value))}
+            className="ml-2 px-2 py-1 text-sm border rounded"
+          >
+            {Array.from({ length: totalPages }, (_, i) => (
+              <option key={i + 1} value={i + 1}>
+                第 {i + 1} 页
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
     </div>
   );
 }
 
 /**
- * 分析面板组件 - 根据菜单ID解析数据
+ * 分析面板组件 - 根据菜单ID解析数据（带缓存优化）
  */
 function AnalysisPanel({ menuId, year, refreshKey }: { menuId: number; year: string; refreshKey?: number }) {
   const { data, loading, error } = useLotteryData(year, refreshKey);
   const [parsedData, setParsedData] = useState<CellValue[][][][] | null>(null);
+  const [isParsing, setIsParsing] = useState(false);
+  const currentDataVersionRef = useRef<number>(0);
+
+  // 使用 useCallback 避免重复创建解析函数
+  const parseData = useCallback(async (dataToParse: any[], targetMenuId: number, dataVer: number) => {
+    const cacheKey = `${year}_${targetMenuId}`;
+    const cached = parseCache.get(cacheKey);
+
+    // 检查缓存是否有效
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      console.log(`Using cached parse result for ${cacheKey}`);
+      setParsedData(cached.data);
+      return;
+    }
+
+    // 使用 setTimeout 避免阻塞 UI
+    setIsParsing(true);
+
+    // 使用 requestIdleCallback 或 setTimeout 让 UI 先更新
+    setTimeout(() => {
+      try {
+        // 清除旧的统计信息
+        statisticsManager.clear(targetMenuId);
+
+        // 设置数据到 dataLoader
+        dataLoader.loadFromArray(dataToParse);
+
+        // 获取菜单配置
+        const menuInfo = MENU_CONFIG[targetMenuId];
+        if (!menuInfo || !menuInfo.titles) {
+          console.warn('Menu not found:', targetMenuId);
+          setIsParsing(false);
+          return;
+        }
+
+        // 使用对应的解析器
+        const parser = PARSER_MAP[targetMenuId];
+        if (parser) {
+          const menuName = menuInfo.name || `Menu${targetMenuId}`;
+          const result = parser(menuInfo.titles, targetMenuId, menuName);
+
+          // 缓存结果
+          parseCache.set(cacheKey, {
+            data: result,
+            timestamp: Date.now(),
+          });
+
+          // 只有当数据版本没变时才设置结果
+          if (currentDataVersionRef.current === dataVer) {
+            setParsedData(result);
+          }
+        } else {
+          console.warn('Parser not found for menu:', targetMenuId);
+        }
+      } catch (err) {
+        console.error('Parse error:', err);
+      } finally {
+        if (currentDataVersionRef.current === dataVer) {
+          setIsParsing(false);
+        }
+      }
+    }, 0);
+  }, [year]);
 
   // 当数据或菜单变化时，重新解析
   useEffect(() => {
     if (data.length > 0) {
-      // 清除旧的统计信息
-      statisticsManager.clear(menuId);
-
-      // 设置数据到 dataLoader
-      dataLoader.loadFromArray(data);
-
-      // 获取菜单配置
-      const menuInfo = MENU_CONFIG[menuId];
-      if (!menuInfo || !menuInfo.titles) {
-        console.warn('Menu not found:', menuId);
-        return;
-      }
-
-      // 使用对应的解析器
-      const parser = PARSER_MAP[menuId];
-      if (parser) {
-        try {
-          const menuName = menuInfo.name || `Menu${menuId}`;
-          const result = parser(menuInfo.titles, menuId, menuName);
-          setParsedData(result);
-        } catch (err) {
-          console.error('Parse error:', err);
-        }
-      } else {
-        console.warn('Parser not found for menu:', menuId);
-      }
+      currentDataVersionRef.current++;
+      const dataVer = currentDataVersionRef.current;
+      parseData(data, menuId, dataVer);
     }
-  }, [data, menuId]);
+  }, [data, menuId, parseData]);
 
   if (loading) {
     return (
@@ -311,6 +405,15 @@ function AnalysisPanel({ menuId, year, refreshKey }: { menuId: number; year: str
     return (
       <div className="p-4 text-center text-destructive">
         错误: {error}
+      </div>
+    );
+  }
+
+  if (isParsing) {
+    return (
+      <div className="p-4 text-center text-muted-foreground flex items-center justify-center gap-2">
+        <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+        正在计算统计...
       </div>
     );
   }
