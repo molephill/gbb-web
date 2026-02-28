@@ -469,6 +469,13 @@ export function AnalysisView() {
         throw new Error(result.error || '获取数据失败');
       }
 
+      // 如果没有新数据，直接显示 API 返回的消息
+      if (result.total === 0) {
+        setFetchMessage(result.message || '已是最新数据');
+        setTimeout(() => setFetchMessage(''), 3000);
+        return;
+      }
+
       // 构建详细的成功消息
       const years = result.yearsAffected || [];
       const saveResults = result.saveResults || [];

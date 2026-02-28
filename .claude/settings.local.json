@@ -17,7 +17,9 @@
       "Bash(do sed:*)",
       "Bash(netstat -ano)",
       "Bash(npx eslint:*)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "Bash(netstat:*)",
+      "Bash(timeout:*)"
     ]
   }
 }
