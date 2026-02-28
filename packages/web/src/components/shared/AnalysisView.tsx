@@ -4,14 +4,14 @@ import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { useLotteryData } from '@/lib/hooks';
+import { useLotteryData, fetchLatestData } from '@/lib/hooks';
 import { dataLoader, parse1, parse2, parse3, parse4, parse5, parse6, parse8, parse9, parse12, statisticsManager } from '@gbb/core';
 import type { CellValue, SubMenuConfig, MenuConfig, ResultInfo } from '@gbb/core';
 import { MENU_FULL_CONFIG } from '@/lib/menu-config';
 
 // 可用年份列表
 const AVAILABLE_YEARS = [
-  '2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018', '2017',
+  '2026', '2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018', '2017',
   '2016', '2015', '2014', '2013', '2012', '2011', '2010', '2009', '2008',
   '2007', '2006', '2005'
 ];
@@ -263,8 +263,8 @@ function AnalysisTable({ parsedData, titles, menuId, year }: {
 /**
  * 分析面板组件 - 根据菜单ID解析数据
  */
-function AnalysisPanel({ menuId, year }: { menuId: number; year: string }) {
-  const { data, loading, error } = useLotteryData(year);
+function AnalysisPanel({ menuId, year, refreshKey }: { menuId: number; year: string; refreshKey?: number }) {
+  const { data, loading, error } = useLotteryData(year, refreshKey);
   const [parsedData, setParsedData] = useState<CellValue[][][][] | null>(null);
 
   // 当数据或菜单变化时，重新解析
@@ -347,6 +347,65 @@ function AnalysisPanel({ menuId, year }: { menuId: number; year: string }) {
 export function AnalysisView() {
   const [year, setYear] = useState('2025');
   const [activeMenu, setActiveMenu] = useState<number>(1);
+  const [isFetching, setIsFetching] = useState(false);
+  const [fetchMessage, setFetchMessage] = useState('');
+  const [dataUpdateKey, setDataUpdateKey] = useState(0); // 用于强制刷新数据
+
+  // 处理更新数据
+  const handleFetchData = async () => {
+    setIsFetching(true);
+    setFetchMessage('正在获取最新数据...');
+
+    try {
+      // 调用更新接口
+      const response = await fetch(`/api/fetch?pageSize=300&save=true`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || '获取数据失败');
+      }
+
+      // 构建详细的成功消息
+      const years = result.yearsAffected || [];
+      const saveResults = result.saveResults || [];
+      const totalNew = saveResults.reduce((sum: number, r: any) => sum + r.newCount, 0);
+
+      let message = `成功获取 ${result.total} 条数据`;
+      if (years.length > 0) {
+        message += `，涉及 ${years.join(', ')} 年`;
+      }
+      if (totalNew > 0) {
+        message += `，新增 ${totalNew} 条记录`;
+      }
+      message += '！';
+
+      setFetchMessage(message);
+
+      // 如果有新年份，自动切换到最新年份
+      if (years.length > 0) {
+        const latestYear = years[0]; // yearsAffected 是降序排列的
+        if (latestYear > year) {
+          setYear(latestYear);
+        }
+      }
+
+      // 强制刷新数据（增加 key 触发 hooks 重新获取）
+      setDataUpdateKey(prev => prev + 1);
+
+      // 5秒后清除消息
+      setTimeout(() => setFetchMessage(''), 5000);
+    } catch (error) {
+      console.error('Fetch error:', error);
+      setFetchMessage(`获取失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      setTimeout(() => setFetchMessage(''), 5000);
+    } finally {
+      setIsFetching(false);
+    }
+  };
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
@@ -386,6 +445,23 @@ export function AnalysisView() {
             </Button>
           ))}
         </div>
+
+        {/* 更新数据按钮 */}
+        <div className="flex items-center gap-2 ml-auto">
+          <Button
+            variant="default"
+            size="sm"
+            onClick={handleFetchData}
+            disabled={isFetching}
+          >
+            {isFetching ? '获取中...' : '更新数据'}
+          </Button>
+          {fetchMessage && (
+            <span className={`text-xs ${fetchMessage.includes('成功') ? 'text-green-600' : 'text-red-600'}`}>
+              {fetchMessage}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* 内容区域 */}
@@ -396,12 +472,12 @@ export function AnalysisView() {
               <h2 className="text-lg font-bold">{year}年 开奖数据</h2>
             </div>
             <div className="flex-1 overflow-auto border rounded-lg">
-              <SimpleDataList year={year} />
+              <SimpleDataList year={year} refreshKey={dataUpdateKey} />
             </div>
           </div>
         ) : (
           <div className="h-full overflow-auto">
-            <AnalysisPanel menuId={activeMenu} year={year} />
+            <AnalysisPanel menuId={activeMenu} year={year} refreshKey={dataUpdateKey} />
           </div>
         )}
       </div>
@@ -412,8 +488,8 @@ export function AnalysisView() {
 /**
  * 简化版数据列表组件 - 带固定列和明显分割线
  */
-function SimpleDataList({ year }: { year: string }) {
-  const { data, loading, error } = useLotteryData(year);
+function SimpleDataList({ year, refreshKey }: { year: string; refreshKey?: number }) {
+  const { data, loading, error } = useLotteryData(year, refreshKey);
 
   // 数据按日期从小到大排序
   const sortedData = useMemo(() => [...data], [data]);

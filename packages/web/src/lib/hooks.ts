@@ -4,9 +4,27 @@ import { useEffect, useState, useRef } from 'react';
 import type { LotteryDraw } from '@gbb/core';
 
 /**
- * 彩票数据 Hook
+ * 从官方 API 获取最新数据
  */
-export function useLotteryData(year: string) {
+export async function fetchLatestData(pageNo: number = 1, pageSize: number = 300): Promise<{
+  list: LotteryDraw[];
+  pages: number;
+  total: number;
+}> {
+  const response = await fetch(`/api/fetch?pageNo=${pageNo}&pageSize=${pageSize}`);
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to fetch data');
+  }
+  return response.json();
+}
+
+/**
+ * 彩票数据 Hook
+ * @param year 年份
+ * @param refreshKey 强制刷新的 key，变化时会重新获取数据
+ */
+export function useLotteryData(year: string, refreshKey?: number) {
   const [data, setData] = useState<LotteryDraw[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -20,8 +38,10 @@ export function useLotteryData(year: string) {
       setError(null);
 
       try {
-        console.log('Fetching data for year:', year);
-        const response = await fetch(`/api/data/${year}`);
+        console.log('Fetching data for year:', year, 'refreshKey:', refreshKey);
+        // 添加时间戳参数避免缓存
+        const cacheBuster = refreshKey ? `?_t=${Date.now()}` : '';
+        const response = await fetch(`/api/data/${year}${cacheBuster}`);
 
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -60,7 +80,7 @@ export function useLotteryData(year: string) {
     return () => {
       mountedRef.current = false;
     };
-  }, [year]);
+  }, [year, refreshKey]);
 
   return { data, loading, error };
 }
