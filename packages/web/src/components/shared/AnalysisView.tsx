@@ -451,7 +451,7 @@ export function AnalysisView() {
   const [fetchMessage, setFetchMessage] = useState('');
   const [dataUpdateKey, setDataUpdateKey] = useState(0); // 用于强制刷新数据
 
-  // 处理更新数据
+  // 处理更新数据（自动包含补全断层）
   const handleFetchData = async () => {
     setIsFetching(true);
     setFetchMessage('正在获取最新数据...');
