@@ -5,7 +5,7 @@ import { ParserBase } from './parser-base';
  * 解析器3 - 三区比/三路比
  */
 export class Parse3 extends ParserBase {
-  parse(titles: SubMenuConfig[]): ParsedData {
+  parse(titles: SubMenuConfig[], menuId: number = 1): ParsedData {
     const out: ParsedData = [];
 
     for (const draw of this.allData) {

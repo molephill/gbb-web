@@ -6,7 +6,7 @@ import { ParserBase } from './parser-base';
  * 解析特定组合是否全部出现
  */
 export class Parse2 extends ParserBase {
-  parse(titles: SubMenuConfig[]): ParsedData {
+  parse(titles: SubMenuConfig[], menuId: number = 1): ParsedData {
     const out: ParsedData = [];
 
     for (const draw of this.allData) {

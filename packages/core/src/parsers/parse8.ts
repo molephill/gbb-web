@@ -5,7 +5,7 @@ import { ParserBase } from './parser-base';
  * 解析器8 - 豹子/二连
  */
 export class Parse8 extends ParserBase {
-  parse(titles: SubMenuConfig[]): ParsedData {
+  parse(titles: SubMenuConfig[], menuId: number = 1): ParsedData {
     const out: ParsedData = [];
     const twoMoreMap = new Map<number, boolean>();
     const twoMap = new Map<number, boolean>();

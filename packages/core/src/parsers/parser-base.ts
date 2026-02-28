@@ -18,7 +18,7 @@ export abstract class ParserBase {
   /**
    * 解析数据
    */
-  abstract parse(titles: SubMenuConfig[]): ParsedData;
+  abstract parse(titles: SubMenuConfig[], menuId: number): ParsedData;
 
   /**
    * 初始化解析

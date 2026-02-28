@@ -5,7 +5,7 @@ import { ParserBase } from './parser-base';
  * 解析器9 - 质合/邻隔
  */
 export class Parse9 extends ParserBase {
-  parse(titles: SubMenuConfig[]): ParsedData {
+  parse(titles: SubMenuConfig[], menuId: number = 1): ParsedData {
     const out: ParsedData = [];
 
     for (const draw of this.allData) {

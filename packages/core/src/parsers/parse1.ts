@@ -6,7 +6,18 @@ import { ParserBase } from './parser-base';
  * 解析每一位的数字、大小、单双
  */
 export class Parse1 extends ParserBase {
-  parse(titles: SubMenuConfig[]): ParsedData {
+  parse(titles: SubMenuConfig[], menuId: number = 1): ParsedData {
+    // 设置当前菜单 ID
+    this.currentMenuId = menuId;
+
+    // 设置根菜单（使用第一个有名称的 title）
+    for (const title of titles) {
+      if (title.rows[0] && title.rows[0][0]) {
+        this.setRootMenu(title);
+        break;
+      }
+    }
+
     const out: ParsedData = [];
 
     for (const draw of this.allData) {
@@ -83,7 +94,7 @@ export class Parse1 extends ParserBase {
 /**
  * 创建解析器实例并解析
  */
-export function parse1(titles: SubMenuConfig[]): ParsedData {
+export function parse1(titles: SubMenuConfig[], menuId: number = 1): ParsedData {
   const parser = new Parse1();
-  return parser.parse(titles);
+  return parser.parse(titles, menuId);
 }

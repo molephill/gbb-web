@@ -61,63 +61,66 @@ function getCellStyle(cell: CellValue, isFixed = false): string {
 }
 
 /**
- * 统计信息面板
+ * 热门统计面板 - 可折叠
  */
 function StatisticsInfoPanel({ menuId, year }: { menuId: number; year: string }) {
+  const [isOpen, setIsOpen] = useState(false);
   const [stats, setStats] = useState<ResultInfo[]>([]);
 
-  useEffect(() => {
-    // 获取统计信息
-    const allStats = statisticsManager.getAllStatistics(menuId);
+  const allStats = statisticsManager.getAllStatistics(menuId);
 
-    // 按中奖次数降序排序，取前10
-    const sorted = allStats
-      .filter(s => s.scoreCount > 0)
-      .sort((a, b) => b.scoreCount - a.scoreCount)
-      .slice(0, 10);
+  // 按中奖次数降序排序，取前10
+  const sorted = useMemo(() => allStats
+    .filter(s => s.scoreCount > 0)
+    .sort((a, b) => b.scoreCount - a.scoreCount)
+    .slice(0, 10), [allStats]);
 
-    setStats(sorted);
-  }, [menuId, year]);
-
-  if (stats.length === 0) {
+  if (sorted.length === 0) {
     return null;
   }
 
   return (
-    <Card className="mt-4">
-      <CardHeader>
-        <CardTitle className="text-sm">热门统计 (TOP 10)</CardTitle>
+    <Card className="mt-4 border-2 border-blue-300">
+      <CardHeader className="py-2 px-3">
+        <div className="flex items-center justify-between cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
+          <CardTitle className="text-sm">热门统计 (TOP 10)</CardTitle>
+          <span className="text-xs text-muted-foreground">
+            {isOpen ? '▼' : '▶'}
+          </span>
+        </div>
       </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="text-xs">项目</TableHead>
-              <TableHead className="text-xs text-center">中奖</TableHead>
-              <TableHead className="text-xs text-center">当前间隔</TableHead>
-              <TableHead className="text-xs text-center">最大间隔</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {stats.map((stat, idx) => (
-              <TableRow key={idx}>
-                <TableCell className="text-xs truncate max-w-[200px]">
-                  {stat.title}
-                </TableCell>
-                <TableCell className="text-xs text-center font-bold text-red-600">
-                  {stat.scoreCount}
-                </TableCell>
-                <TableCell className="text-xs text-center text-orange-600">
-                  {stat.gapCount}
-                </TableCell>
-                <TableCell className="text-xs text-center text-purple-600">
-                  {stat.maxGapCount}
-                </TableCell>
+      {isOpen && (
+        <CardContent className="pt-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-xs">项目</TableHead>
+                <TableHead className="text-xs text-center">中奖</TableHead>
+                <TableHead className="text-xs text-center">当前间隔</TableHead>
+                <TableHead className="text-xs text-center">最大间隔</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
+            </TableHeader>
+            <TableBody>
+              {sorted.map((stat, idx) => (
+                <TableRow key={idx}>
+                  <TableCell className="text-xs truncate max-w-[200px">
+                    {stat.title}
+                  </TableCell>
+                  <TableCell className="text-xs text-center font-bold text-red-600">
+                    {stat.scoreCount}
+                  </TableCell>
+                  <TableCell className="text-xs text-center text-orange-600">
+                    {stat.gapCount}
+                  </TableCell>
+                  <TableCell className="text-xs text-center text-purple-600">
+                    {stat.maxGapCount}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      )}
     </Card>
   );
 }
@@ -145,9 +148,6 @@ function AnalysisTable({ parsedData, titles, menuId, year }: {
 
   // 计算每个 title 的列数和累计位置（像素）
   const titleColCounts = titles.map(t => t.rows[1]?.length || 0);
-  const titleWidths = titleColCounts.map((count, titleIdx) =>
-    Array.from({ length: count }, (_, i) => getColumnWidth(titleIdx, i))
-  );
 
   // 计算每个单元格的 left 位置
   const cellLeftPositions: number[][] = [];
@@ -162,7 +162,14 @@ function AnalysisTable({ parsedData, titles, menuId, year }: {
 
   // 计算固定列的总宽度
   const fixedColCount = titleColCounts[0];
-  const fixedWidth = cellLeftPositions[0][fixedColCount - 1] + getColumnWidth(0, fixedColCount - 1);
+
+  // 获取统计信息 - 修复：总是获取统计，对于数据列统计会在数据渲染时自动创建
+  const getStatistics = (titleIdx: number, cellIdx: number) => {
+    if (titleIdx === 0) return null; // 第一行（固定列）不显示统计
+    // 尝试获取统计信息，如果还没有就返回 null
+    const stats = statisticsManager.getResultInfo(menuId, titles[titleIdx].id, cellIdx);
+    return stats;
+  };
 
   // 渲染单个单元格
   function renderCell(cell: CellValue, titleIdx: number, cellIdx: number): React.ReactNode {
@@ -194,37 +201,43 @@ function AnalysisTable({ parsedData, titles, menuId, year }: {
               {titles.map((title, idx) => {
                 const colCount = titleColCounts[idx];
                 const headerText = title.rows[0]?.[0] || '';
-                const titleWidth = cellLeftPositions[idx].reduce((sum, w, i) =>
-                  sum + (idx === 0 && i === 0 ? 120 : idx === 0 && i === 1 ? 80 : 70), 0
-                );
                 return (
                   <th
                     key={idx}
                     colSpan={colCount}
                     className="text-center text-sm font-semibold border-2 border-gray-400 bg-muted px-2 py-2"
-                    style={{ minWidth: titleWidth }}
                   >
                     {headerText}
                   </th>
                 );
               })}
             </tr>
-            {/* 第二行表头 - 子标题 */}
+            {/* 第二行表头 - 子标题（带统计信息） */}
             <tr>
               {titles.map((title, titleIdx) => {
                 const cols = title.rows[1] || [];
                 return cols.map((col, cellIdx) => {
                   const isFixed = titleIdx === 0;
                   const leftPos = cellLeftPositions[titleIdx]?.[cellIdx] || 0;
+                  const stats = getStatistics(titleIdx, cellIdx);
+                  const colName = String(col).split('#')[0];
+
                   return (
                     <th
                       key={`${titleIdx}-${cellIdx}`}
-                      className={`text-center text-xs font-medium border-2 border-gray-400 bg-muted/80 px-2 py-1.5 ${
+                      className={`text-center text-xs font-medium border-2 border-gray-400 bg-muted/80 p-1 relative ${
                         isFixed ? 'sticky left-0 z-30 bg-blue-100 border-r-4 border-gray-500 shadow-md' : ''
                       }`}
                       style={isFixed ? { left: `${leftPos}px`, minWidth: getColumnWidth(titleIdx, cellIdx) } : { minWidth: 70 }}
                     >
-                      {String(col).split('#')[0]}
+                      <div className="flex flex-col items-center gap-1">
+                        <span>{colName}</span>
+                        {stats && (
+                          <span className="text-[10px] text-orange-600 font-semibold">
+                            {stats.gapCount || 0}/{stats.maxGapCount || 0}
+                          </span>
+                        )}
+                      </div>
                     </th>
                   );
                 });
@@ -275,7 +288,7 @@ function AnalysisPanel({ menuId, year }: { menuId: number; year: string }) {
       const parser = PARSER_MAP[menuId];
       if (parser) {
         try {
-          const result = parser(menuInfo.titles);
+          const result = parser(menuInfo.titles, menuId);
           setParsedData(result);
         } catch (err) {
           console.error('Parse error:', err);

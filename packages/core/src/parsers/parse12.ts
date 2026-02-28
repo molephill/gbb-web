@@ -5,7 +5,7 @@ import { ParserBase } from './parser-base';
  * 解析器12 - 另一种包含模式
  */
 export class Parse12 extends ParserBase {
-  parse(titles: SubMenuConfig[]): ParsedData {
+  parse(titles: SubMenuConfig[], menuId: number = 1): ParsedData {
     const out: ParsedData = [];
 
     for (const draw of this.allData) {

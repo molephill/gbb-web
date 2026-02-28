@@ -5,7 +5,7 @@ import { ParserBase } from './parser-base';
  * 解析器6 - 单双组合
  */
 export class Parse6 extends ParserBase {
-  parse(titles: SubMenuConfig[]): ParsedData {
+  parse(titles: SubMenuConfig[], menuId: number = 1): ParsedData {
     const out: ParsedData = [];
 
     for (const draw of this.allData) {
