@@ -5,8 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { useLotteryData, fetchLatestData } from '@/lib/hooks';
-import { dataLoader, parse1, parse2, parse3, parse4, parse5, parse6, parse8, parse9, parse12, statisticsManager } from '@gbb/core';
-import type { CellValue, SubMenuConfig, MenuConfig, ResultInfo } from '@gbb/core';
+import { dataLoader, parse1, parse2, parse3, parse4, parse5, parse6, parse8, parse9, parse12, statisticsManager } from '@/lib/core';
+import type { CellValue, SubMenuConfig, MenuConfig, ResultInfo } from '@/lib/core';
 import { MENU_FULL_CONFIG } from '@/lib/menu-config';
 
 // 可用年份列表

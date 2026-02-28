@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { statisticsManager } from '@gbb/core';
+import { statisticsManager } from '@/lib/core';
 
 /**
  * 统计信息面板组件
