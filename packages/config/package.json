@@ -1,0 +1,6 @@
+{
+  "name": "@gbb/config",
+  "version": "1.0.0",
+  "description": "GBB 配置文件",
+  "main": "./menu.json"
+}
