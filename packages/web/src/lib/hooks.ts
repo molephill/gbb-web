@@ -39,8 +39,9 @@ export function useLotteryData(year: string, refreshKey?: number) {
 
       try {
         console.log('Fetching data for year:', year, 'refreshKey:', refreshKey);
-        // 添加时间戳参数避免缓存
-        const cacheBuster = refreshKey ? `?_t=${Date.now()}` : '';
+        // 添加时间戳参数避免缓存 - year 和 refreshKey 都会触发重新获取
+        const timestamp = Date.now();
+        const cacheBuster = `?_t=${timestamp}`;
         const response = await fetch(`/api/data/${year}${cacheBuster}`);
 
         if (!response.ok) {
@@ -48,7 +49,7 @@ export function useLotteryData(year: string, refreshKey?: number) {
         }
 
         const json = await response.json();
-        console.log('API response:', json);
+        console.log('API response for', year, ':', json?.length || 0, 'records');
 
         if (!mountedRef.current) return;
 

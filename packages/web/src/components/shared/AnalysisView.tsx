@@ -310,8 +310,25 @@ function AnalysisPanel({ menuId, year, refreshKey }: { menuId: number; year: str
   const currentDataVersionRef = useRef<number>(0);
 
   // 使用 useCallback 避免重复创建解析函数
-  const parseData = useCallback(async (dataToParse: any[], targetMenuId: number, dataVer: number) => {
-    const cacheKey = `${year}_${targetMenuId}`;
+  const parseData = useCallback(async (dataToParse: any[], targetMenuId: number, currentYear: string, dataVer: number) => {
+    const cacheKey = `${currentYear}_${targetMenuId}`;
+
+    // 验证数据年份是否匹配
+    const firstDataYear = dataToParse[0]?.id?.substring(0, 2);
+    const expectedYearPrefix = currentYear.slice(-2); // 2026 -> 26
+
+    console.log(`parseData called: year=${currentYear}, menuId=${targetMenuId}, dataLen=${dataToParse.length}, cacheKey=${cacheKey}, firstDataYear=${firstDataYear}`);
+
+    // 如果数据年份与请求年份不匹配，直接丢弃不处理
+    if (firstDataYear && firstDataYear !== expectedYearPrefix) {
+      console.warn(`⚠️ Data year mismatch! Expected year ${currentYear} (${expectedYearPrefix}), but got data starting with ${firstDataYear}`);
+      console.warn(`⚠️ Skipping parse, waiting for correct data...`);
+      // 清除所有可能被污染的缓存
+      parseCache.clear();
+      setParsedData(null);
+      return; // 直接返回，不解析错误的数据
+    }
+
     const cached = parseCache.get(cacheKey);
 
     // 检查缓存是否有效
@@ -320,6 +337,8 @@ function AnalysisPanel({ menuId, year, refreshKey }: { menuId: number; year: str
       setParsedData(cached.data);
       return;
     }
+
+    console.log(`Parsing fresh data for ${cacheKey}...`);
 
     // 使用 setTimeout 避免阻塞 UI
     setIsParsing(true);
@@ -347,6 +366,8 @@ function AnalysisPanel({ menuId, year, refreshKey }: { menuId: number; year: str
           const menuName = menuInfo.name || `Menu${targetMenuId}`;
           const result = parser(menuInfo.titles, targetMenuId, menuName);
 
+          console.log(`Parse complete for ${cacheKey}: result length =`, result.length);
+
           // 缓存结果
           parseCache.set(cacheKey, {
             data: result,
@@ -356,6 +377,7 @@ function AnalysisPanel({ menuId, year, refreshKey }: { menuId: number; year: str
           // 只有当数据版本没变时才设置结果
           if (currentDataVersionRef.current === dataVer) {
             setParsedData(result);
+            console.log(`Set parsedData for ${cacheKey}`);
           }
         } else {
           console.warn('Parser not found for menu:', targetMenuId);
@@ -368,16 +390,33 @@ function AnalysisPanel({ menuId, year, refreshKey }: { menuId: number; year: str
         }
       }
     }, 0);
+  }, []);
+
+  // 年份变化时，清除该年份的所有解析缓存
+  useEffect(() => {
+    console.log(`Year changed to: ${year}, clearing caches for this year`);
+    // 清除当前年份的所有缓存
+    for (const [key] of parseCache.entries()) {
+      if (key.startsWith(`${year}_`)) {
+        parseCache.delete(key);
+        console.log(`Cleared cache: ${key}`);
+      }
+    }
+    // 同时清除旧的解析数据
+    setParsedData(null);
   }, [year]);
 
   // 当数据或菜单变化时，重新解析
   useEffect(() => {
     if (data.length > 0) {
+      console.log(`Effect triggered: year=${year}, menuId=${menuId}, dataLen=${data.length}`);
+      // 清除旧的解析数据，防止显示错误年份的数据
+      setParsedData(null);
       currentDataVersionRef.current++;
       const dataVer = currentDataVersionRef.current;
-      parseData(data, menuId, dataVer);
+      parseData(data, menuId, year, dataVer);
     }
-  }, [data, menuId, parseData]);
+  }, [data, menuId, year, parseData]);
 
   if (loading) {
     return (
