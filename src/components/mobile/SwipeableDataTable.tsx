@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { useLotteryData } from '@/lib/hooks';
-import type { CellValue, SubMenuConfig } from '@/lib/core';
+import type { CellValue, SubMenuConfig } from '../../lib/core';
 
 /**
  * 移动端可滑动数据表格
