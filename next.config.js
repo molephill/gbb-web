@@ -11,14 +11,6 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // 修复路径别名解析问题
-  webpack: (config) => {
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      '@': require('path').resolve(__dirname, './src'),
-    };
-    return config;
-  },
 };
 
 module.exports = withPWA(nextConfig);
