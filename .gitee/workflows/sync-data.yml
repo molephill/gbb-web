@@ -36,4 +36,5 @@ jobs:
             exit 0
           fi
           git commit -m "chore: 自动同步彩票数据 $(date -u +'%Y-%m-%d %H:%M UTC')"
-          git push origin HEAD:master
+          # 用 token 推送（避免公钥配置）
+          git push https://oauth2:${GITEE_TOKEN}@gitee.com/liar7254/gbb.git HEAD:master
