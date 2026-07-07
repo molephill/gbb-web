@@ -1,0 +1,43 @@
+name: 定时同步彩票数据
+
+on:
+  # 每 6 小时跑一次（UTC 0/6/12/18 → 北京时间 8/14/20/02 点）
+  schedule:
+    - cron: '0 */6 * * *'
+  # 支持手动触发（Actions 页面 → Run workflow）
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # 允许 push
+
+    steps:
+      - name: 检出数据仓库
+        uses: actions/checkout@v4
+        with:
+          repository: molephill/gbb-data
+          token: ${{ secrets.DATA_REPO_TOKEN }}
+          path: data-repo
+
+      - name: 设置 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 拉取最新数据
+        run: node scripts/sync-data.mjs
+
+      - name: 提交并推送
+        run: |
+          cd data-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add caches/
+          if git diff --staged --quiet; then
+            echo "无新数据，跳过提交"
+            exit 0
+          fi
+          git commit -m "chore: 自动同步彩票数据 $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git push

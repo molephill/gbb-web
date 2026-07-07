@@ -7,14 +7,14 @@ import path from 'path';
  *
  * 数据源策略：
  * 1. 本地开发（无 VERCEL 环境变量）：读取 caches/{year}.json
- * 2. Vercel 生产环境：实时从 Gitee 数据仓库拉取，无需重新部署
- *    - 仓库：gitee.com/liar7254/gold-bling-bling-data
+ * 2. Vercel 生产环境：实时从 GitHub 数据仓库拉取，无需重新部署
+ *    - 仓库：github.com/molephill/gbb-data
  *    - 路径：caches/{year}.json
  * 3. 同时尝试 raw 主分支（master）和 main 分支（兼容）
  */
-const GITEE_RAW_BASES = [
-  'https://gitee.com/liar7254/gold-bling-bling-data/raw/master/caches',
-  'https://gitee.com/liar7254/gold-bling-bling-data/raw/main/caches',
+const GITHUB_RAW_BASES = [
+  'https://raw.githubusercontent.com/molephill/gbb-data/master/caches',
+  'https://raw.githubusercontent.com/molephill/gbb-data/main/caches',
 ];
 
 export async function GET(
@@ -34,9 +34,9 @@ export async function GET(
     'Expires': '0',
   };
 
-  // 生产环境（Vercel）：实时从 Gitee 拉取
+  // 生产环境（Vercel）：实时从 GitHub 拉取
   if (process.env.VERCEL === '1') {
-    for (const base of GITEE_RAW_BASES) {
+    for (const base of GITHUB_RAW_BASES) {
       try {
         const url = `${base}/${year}.json`;
         const res = await fetch(url, {
@@ -51,9 +51,8 @@ export async function GET(
         // 尝试下一个 base
       }
     }
-    // Gitee 都失败
     return NextResponse.json(
-      { error: `Year ${year} data not found in Gitee` },
+      { error: `Year ${year} data not found in GitHub` },
       { status: 404 }
     );
   }
@@ -65,8 +64,8 @@ export async function GET(
     const data = JSON.parse(fileContent);
     return NextResponse.json(data, { headers: noCacheHeaders });
   } catch {
-    // 本地也没有 → 尝试 Gitee 兜底
-    for (const base of GITEE_RAW_BASES) {
+    // 本地也没有 → 尝试 GitHub 兜底
+    for (const base of GITHUB_RAW_BASES) {
       try {
         const res = await fetch(`${base}/${year}.json`, { cache: 'no-store' });
         if (res.ok) {
