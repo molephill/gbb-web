@@ -14,6 +14,9 @@ jobs:
       contents: write   # 允许 push
 
     steps:
+      - name: 检出当前仓库（包含同步脚本）
+        uses: actions/checkout@v4
+
       - name: 检出数据仓库
         uses: actions/checkout@v4
         with:
