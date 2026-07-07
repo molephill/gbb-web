@@ -55,10 +55,11 @@ export const DEFAULT_DATA_SOURCES: readonly DataSource[] = [
     name: 'qxc',
     label: '七星彩 (04)',
     gameNo: '04',
-    giteeRepo: 'liar7254/qxc_data',
+    giteeRepo: 'liar7254/gbb',
     giteeBranch: 'master',
     cacheDir: 'caches/qxc',
-    giteeCacheUrl: 'https://gitee.com/liar7254/qxc_data/raw/master/caches',
+    // 与 gbb 共享主仓库，caches/qxc/ 子目录
+    giteeCacheUrl: 'https://gitee.com/liar7254/gbb/raw/master/caches/qxc',
     years: [
       '2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018', '2017',
       '2016', '2015', '2014', '2013', '2012', '2011', '2010', '2009', '2008', '2007', '2006', '2005',
