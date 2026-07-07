@@ -6,18 +6,17 @@ stages:
     name: sync-data
     displayName: 同步彩票数据
     steps:
-      - step: build@nodejs
+      - step: build@general
         name: sync_lottery
         displayName: Node 同步
-        nodeVersion: 20.0.0
         commands:
           - node -v
           - node scripts/sync-data.mjs
           - git config user.name "gitee-actions"
           - git config user.email "gitee-actions@users.noreply.gitee.com"
-          - git add caches/ || true
+          - git add caches/
           - git diff --staged --quiet && echo "无新数据" && exit 0
-          - git commit -m "chore: 自动同步彩票数据 $(date -u +'%Y-%m-%d %H:%M UTC')" || true
+          - git commit -m "chore: 自动同步彩票数据 $(date -u +'%Y-%m-%d %H:%M UTC')"
           - git push https://oauth2:${GITEE_TOKEN}@gitee.com/liar7254/gbb.git HEAD:master
 triggers:
   push:
