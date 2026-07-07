@@ -66,7 +66,7 @@ export function GoldenLayoutView() {
     };
 
     // 创建布局
-    const layout = new GoldenLayout(config, containerRef.current);
+    const layout = new (GoldenLayout as any)(config, containerRef.current);
     layoutRef.current = layout;
 
     // 注册组件

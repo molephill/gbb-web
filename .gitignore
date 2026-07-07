@@ -34,6 +34,16 @@ pnpm-debug.log*
 out
 sw.js
 workbox-*.js
+*.tsbuildinfo
+
+# 部署产物
+gbb-pages/
+gbb-web-deploy/
+dist/
+deploy/
+
+# PWA
+.pnpmfile.cjs
 
 # Electron
 *.dmg

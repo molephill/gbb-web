@@ -33,8 +33,10 @@ export async function GET(request: Request) {
     const latestApiResponse = await fetch(`https://webapi.sporttery.cn/gateway/lottery/getHistoryPageListV1.qry?gameNo=350133&provinceId=0&pageSize=1&isVerify=1&pageNo=1`, {
       headers: {
         'Accept': 'application/json, text/plain, */*',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Accept-Language': 'zh-CN,zh;q=0.9',
         'Referer': 'https://www.sporttery.cn/',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       },
     });
 
@@ -136,10 +138,16 @@ export async function GET(request: Request) {
       }));
 
       // 如果遇到本地已有的数据，停止获取
-      const hasExistingData = transformedList.some(item => yearLatestIds[item.draw_date.split('-')[0]] && Number(item.id) <= Number(yearLatestIds[item.draw_date.split('-')[0]]));
+      const hasExistingData = transformedList.some((item: { draw_date: string; id: string }) =>
+        yearLatestIds[item.draw_date.split('-')[0]] &&
+        Number(item.id) <= Number(yearLatestIds[item.draw_date.split('-')[0]])
+      );
       if (hasExistingData && currentPage === 1) {
         // 第一页就有已存在的数据，检查是否有新的
-        const newItems = transformedList.filter(item => !yearLatestIds[item.draw_date.split('-')[0]] || Number(item.id) > Number(yearLatestIds[item.draw_date.split('-')[0]] || '0'));
+        const newItems = transformedList.filter((item: { draw_date: string; id: string }) =>
+          !yearLatestIds[item.draw_date.split('-')[0]] ||
+          Number(item.id) > Number(yearLatestIds[item.draw_date.split('-')[0]] || '0')
+        );
         if (newItems.length > 0) {
           allFetchedData.push(...newItems);
         }

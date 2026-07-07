@@ -11,8 +11,8 @@
     "dist": "electron-builder"
   },
   "dependencies": {
-    "@gbb/core": "*",
-    "@gbb/config": "*",
+    "@gbb/core": "workspace:*",
+    "@gbb/config": "workspace:*",
     "puppeteer": "^24.1.1",
     "simple-git": "^3.27.0"
   },

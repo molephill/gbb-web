@@ -1,0 +1,15 @@
+# 不上传到 Vercel 的文件（加速部署）
+node_modules
+**/node_modules
+**/.next
+**/out
+**/dist
+**/.turbo
+.git
+**/.turbo
+packages/desktop
+gbb-pages
+gbb-web-deploy
+dist
+*.log
+.DS_Store
