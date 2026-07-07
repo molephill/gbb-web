@@ -1,0 +1,13 @@
+node_modules
+**/node_modules
+**/.next
+**/out
+**/dist
+**/.turbo
+.git
+packages/desktop
+gbb-pages
+gbb-web-deploy
+dist
+*.log
+.DS_Store
