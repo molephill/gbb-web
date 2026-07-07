@@ -13,22 +13,56 @@ const API_BASE = 'https://webapi.sporttery.cn/gateway/lottery/getHistoryPageList
 const GAME_NO = '350133';
 const HEADERS = {
   'Accept': 'application/json, text/plain, */*',
-  'Accept-Language': 'zh-CN,zh;q=0.9',
+  'Accept-Encoding': 'gzip, deflate, br',
+  'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+  'Cache-Control': 'no-cache',
+  'Connection': 'keep-alive',
+  'Pragma': 'no-cache',
   'Referer': 'https://www.sporttery.cn/',
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+  'Sec-Fetch-Dest': 'empty',
+  'Sec-Fetch-Mode': 'cors',
+  'Sec-Fetch-Site': 'same-site',
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+  'X-Requested-With': 'XMLHttpRequest',
 };
 
 /**
- * 从官方 API 获取一页数据
+ * 休眠
  */
-async function fetchPage(pageNo, pageSize = 300) {
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * 从官方 API 获取一页数据（带重试）
+ */
+async function fetchPage(pageNo, pageSize = 300, maxRetries = 5) {
   const url = `${API_BASE}?gameNo=${GAME_NO}&provinceId=0&pageSize=${pageSize}&isVerify=1&pageNo=${pageNo}`;
-  const res = await fetch(url, { headers: HEADERS });
-  if (!res.ok) throw new Error(`API ${res.status}`);
-  const text = await res.text();
-  if (text.startsWith('<!DOCTYPE')) throw new Error('API 返回 HTML');
-  const data = JSON.parse(text);
-  return data?.value?.list || [];
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const res = await fetch(url, { headers: HEADERS });
+      if (!res.ok) throw new Error(`API ${res.status}`);
+      const text = await res.text();
+      if (text.startsWith('<!DOCTYPE')) throw new Error('API 返回 HTML');
+      const data = JSON.parse(text);
+
+      // 检查 API 业务错误码（如 567 风控）
+      if (data?.errorCode && data.errorCode !== '0') {
+        throw new Error(`API ${data.errorCode}: ${data.errorMessage || '业务错误'}`);
+      }
+
+      return data?.value?.list || [];
+    } catch (err) {
+      console.error(`第 ${pageNo} 页第 ${attempt}/${maxRetries} 次失败: ${err.message}`);
+      if (attempt < maxRetries) {
+        // 指数退避：2s, 4s, 8s, 16s
+        await sleep(2000 * Math.pow(2, attempt - 1));
+      } else {
+        throw err;
+      }
+    }
+  }
 }
 
 /**
@@ -77,8 +111,10 @@ async function main() {
         break;
       }
       if (list.length < 300) break;
+      // 每页之间加一个短暂延迟，避免触发风控
+      await sleep(500);
     } catch (err) {
-      console.error(`第 ${page} 页失败:`, err.message);
+      console.error(`第 ${page} 页最终失败: ${err.message}`);
       break;
     }
   }
