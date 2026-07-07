@@ -1,0 +1,39 @@
+name: 同步彩票数据
+
+# Gitee Actions 触发器
+# - push: 代码推送时触发
+# - schedule: 每天定时触发
+on:
+  push:
+    paths:
+      - 'scripts/sync-data.mjs'
+  schedule:
+    # 每天北京时间 8:00、20:00（UTC 0:00、12:00）跑
+    - cron: '0 0,12 * * *'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v3
+
+      - name: 设置 Node 20
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: 同步数据
+        run: node scripts/sync-data.mjs
+
+      - name: 提交数据
+        run: |
+          git config user.name "gitee-actions"
+          git config user.email "gitee-actions@users.noreply.gitee.com"
+          git add caches/
+          if git diff --staged --quiet; then
+            echo "无新数据，跳过提交"
+            exit 0
+          fi
+          git commit -m "chore: 自动同步彩票数据 $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git push origin HEAD:master
