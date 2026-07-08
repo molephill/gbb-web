@@ -6,9 +6,11 @@ stages:
     name: sync-data
     displayName: 同步彩票数据
     steps:
-      - step: build@general
+      - step: build@nodejs
         name: sync_lottery
         displayName: Node 同步
+        nodeVersion: 20.0.0
+        # 不指定 installCommand，避免 npm install 失败
         commands:
           - node -v
           - node scripts/sync-data.mjs

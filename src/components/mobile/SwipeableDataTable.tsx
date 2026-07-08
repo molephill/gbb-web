@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { useLotteryData } from '@/lib/hooks';
+import { useDataSource } from '../../lib/core/data-source-context';
 import type { CellValue, SubMenuConfig } from '../../lib/core';
 
 /**
@@ -97,7 +98,8 @@ interface CompactDataListProps {
 }
 
 export function CompactDataList({ year }: CompactDataListProps) {
-  const { data, loading, error } = useLotteryData(year);
+  const { source } = useDataSource();
+  const { data, loading, error } = useLotteryData(year, undefined, source);
 
   const reversedData = useMemo(() => [...data].reverse(), [data]);
 
@@ -201,7 +203,8 @@ interface KeyStatsCardProps {
 }
 
 export function KeyStatsCard({ menuId, year }: KeyStatsCardProps) {
-  const { data, loading } = useLotteryData(year);
+  const { source } = useDataSource();
+  const { data, loading } = useLotteryData(year, undefined, source);
 
   if (loading || data.length === 0) {
     return null;

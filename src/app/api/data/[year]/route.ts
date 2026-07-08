@@ -14,9 +14,14 @@ import {
  * 数据源策略：
  * 1. 本地开发（无 VERCEL 环境变量）：读取 {cacheDir}/{year}.json
  * 2. Vercel 生产环境：实时从 Gitee 仓库拉取，无需重新部署
- *    - 通过 ?source=gbb|qxc 切换数据源（默认 gbb）
- *    - 各数据源的 Gitee 仓库在 data-sources.ts 中声明
+ *    - gbb: gitee.com/liar7254/gold-bling-bling-data
+ *    - qxc: gitee.com/liar7254/qxc_data
+ *    - 路径：caches/{year}.json
+ *    - 由 Gitee Actions 自动同步（国内 IP 不被风控）
  * 3. 同时尝试 raw 主分支（master）和 main 分支（兼容）
+ *
+ * Query 参数：
+ * - source: 'gbb' | 'qxc'（默认 'gbb'）
  */
 export async function GET(
   request: Request,
@@ -35,16 +40,15 @@ export async function GET(
 
   const noCacheHeaders = {
     'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-    'Pragma': 'no-cache',
-    'Expires': '0',
+    Pragma: 'no-cache',
+    Expires: '0',
   };
 
   // 生产环境（Vercel）：实时从 Gitee 拉取
   if (process.env.VERCEL === '1') {
     for (const base of giteeBases) {
       try {
-        const url = `${base}/${year}.json`;
-        const res = await fetch(url, {
+        const res = await fetch(`${base}/${year}.json`, {
           cache: 'no-store',
           headers: { 'User-Agent': 'GBB-Web/1.0' },
         });
@@ -80,7 +84,7 @@ export async function GET(
       } catch {}
     }
     return NextResponse.json(
-      { error: `Year ${year} data not found` },
+      { error: `Year ${year} data not found for source=${source.id}` },
       { status: 404 }
     );
   }

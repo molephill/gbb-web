@@ -8,11 +8,6 @@ export const breakpoints = {
 };
 
 /**
- * 数据源 URL
- */
-export const DATA_SOURCE_URL = 'https://gitee.com/liar7254/gold-bling-bling-data/raw/master';
-
-/**
  * PWA 配置
  */
 export const PWA_CONFIG = {

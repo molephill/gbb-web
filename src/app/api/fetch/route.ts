@@ -3,6 +3,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { getDataSource, DEFAULT_DATA_SOURCE_ID } from '@/lib/core/data-sources';
 
 const execAsync = promisify(exec);
 
@@ -31,8 +32,11 @@ export async function GET(request: Request) {
     const forcePush = searchParams.get('forcePush') === 'true';
     const forcePushYear = searchParams.get('forcePushYear') || '2026';
 
+    // 多数据源：根据 ?source= 派生 gameNo / 本地目录 / Gitee 仓库
+    const source = getDataSource(searchParams.get('source') ?? DEFAULT_DATA_SOURCE_ID);
+
     // 首先获取最新的一页数据来检查是否有新数据
-    const latestApiResponse = await fetch(`https://webapi.sporttery.cn/gateway/lottery/getHistoryPageListV1.qry?gameNo=350133&provinceId=0&pageSize=1&isVerify=1&pageNo=1`, {
+    const latestApiResponse = await fetch(`https://webapi.sporttery.cn/gateway/lottery/getHistoryPageListV1.qry?gameNo=${source.gameNo}&provinceId=0&pageSize=1&isVerify=1&pageNo=1`, {
       headers: {
         'Accept': 'application/json, text/plain, */*',
         'Accept-Encoding': 'gzip, deflate, br',
@@ -70,7 +74,7 @@ export async function GET(request: Request) {
     // 检查各年份的最新数据，判断是否需要更新
     // 在 Vercel 等只读文件系统的环境中，无法读取 caches/，直接走内存逻辑
     const isReadOnly = process.env.VERCEL === '1';
-    const dataDir = isReadOnly ? '' : path.join(process.cwd(), 'caches');
+    const dataDir = isReadOnly ? '' : path.join(process.cwd(), source.cacheDir);
     if (!isReadOnly) {
       try { await fs.mkdir(dataDir, { recursive: true }); } catch {}
     }
@@ -138,7 +142,7 @@ export async function GET(request: Request) {
 
     // 只获取新数据（直到遇到本地已有的数据）
     while (hasMoreData) {
-      const apiUrl = `https://webapi.sporttery.cn/gateway/lottery/getHistoryPageListV1.qry?gameNo=350133&provinceId=0&pageSize=${pageSize}&isVerify=1&pageNo=${currentPage}`;
+      const apiUrl = `https://webapi.sporttery.cn/gateway/lottery/getHistoryPageListV1.qry?gameNo=${source.gameNo}&provinceId=0&pageSize=${pageSize}&isVerify=1&pageNo=${currentPage}`;
 
       const response = await fetch(apiUrl, {
         headers: {
@@ -176,7 +180,7 @@ export async function GET(request: Request) {
       };
 
       const newItems = transformedList.filter(isNewItem);
-      const hasExistingData = transformedList.some((item) => !isNewItem(item));
+      const hasExistingData = transformedList.some((item: { draw_date: string; id: string }) => !isNewItem(item));
 
       if (hasExistingData) {
         // 当前页包含已存在数据 — push 新条目（用于填补断层）
@@ -278,7 +282,7 @@ export async function GET(request: Request) {
               if (dataMap.has(idStr)) continue;
 
               try {
-                const apiUrl = `https://webapi.sporttery.cn/gateway/lottery/getHistoryPageListV1.qry?gameNo=350133&provinceId=0&pageSize=1&isVerify=1&lotteryDrawNum=${idStr}`;
+                const apiUrl = `https://webapi.sporttery.cn/gateway/lottery/getHistoryPageListV1.qry?gameNo=${source.gameNo}&provinceId=0&pageSize=1&isVerify=1&lotteryDrawNum=${idStr}`;
                 const response = await fetch(apiUrl, {
                   headers: {
                     'Accept': 'application/json, text/plain, */*',
@@ -343,19 +347,19 @@ export async function GET(request: Request) {
       }
     }
 
-    // Git 提交和推送 — 推到独立的数据仓库 gold-bling-bling-data
+    // Git 提交和推送 — 推到与数据源对应的独立数据仓库
     let gitResult = { committed: false, pushed: false, message: 'Vercel 环境跳过（无 git 命令且文件系统只读）' };
     if (saveToFile && pushToGitee && !isReadOnly && (saveResults.length > 0 || forcePush)) {
       const tmp = await import('os');
-      const dataRepoUrl = 'https://gitee.com/liar7254/gold-bling-bling-data.git';
-      const dataRepoBranch = 'master';
-      const cloneDir = path.join(tmp.tmpdir(), 'gbb-data-push');
+      const dataRepoUrl = `https://gitee.com/${source.giteeRepo}.git`;
+      const dataRepoBranch = source.giteeBranch;
+      const cloneDir = path.join(tmp.tmpdir(), `gbb-data-push-${source.id}`);
       try {
         // 1. 准备数据仓库本地副本（首次 clone / 之后 pull）
         try {
           await fs.access(path.join(cloneDir, '.git'));
         } catch {
-          await new Promise((resolve, reject) => {
+          await new Promise<void>((resolve, reject) => {
             gitCommand(`git clone ${dataRepoUrl} "${cloneDir}"`, process.cwd())
               .then(() => resolve())
               .catch(reject);
@@ -363,8 +367,8 @@ export async function GET(request: Request) {
         }
         await gitCommand(`git pull origin ${dataRepoBranch}`, cloneDir);
 
-        // 2. 拷贝最新 caches/{year}.json 到数据仓库
-        const remoteCachesDir = path.join(cloneDir, 'caches');
+        // 2. 拷贝最新 {source.cacheDir}/{year}.json 到数据仓库
+        const remoteCachesDir = path.join(cloneDir, source.cacheDir);
         await fs.mkdir(remoteCachesDir, { recursive: true });
         const yearsToSync = saveResults.length > 0
           ? saveResults.map((r: any) => r.year)
@@ -376,8 +380,8 @@ export async function GET(request: Request) {
           );
         }
 
-        // 3. 在数据仓库里 commit + push
-        await gitCommand('git add caches/', cloneDir);
+        // 3. 在数据仓库里 commit + push（add 整条 cacheDir 路径，含 'qxc' 子目录）
+        await gitCommand(`git add ${source.cacheDir}/`, cloneDir);
         const totalNew = saveResults.reduce((sum: number, r: any) => sum + r.newCount, 0);
         const years = yearsToSync.join(', ');
         const commitMessage = `chore: update lottery data (${years}${forcePush && saveResults.length === 0 ? ', force-sync' : ''})`;

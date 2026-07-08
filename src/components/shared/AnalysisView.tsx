@@ -1,20 +1,16 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import * as Select from '@radix-ui/react-select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { useLotteryData, fetchLatestData } from '@/lib/hooks';
+import { useLotteryData, useAllYearsData, fetchLatestData, AVAILABLE_YEARS } from '@/lib/hooks';
 import { dataLoader, parse1, parse2, parse3, parse4, parse5, parse6, parse8, parse9, parse12, statisticsManager } from '../../lib/core';
-import type { CellValue, SubMenuConfig, MenuConfig, ResultInfo } from '../../lib/core';
+import type { CellValue, SubMenuConfig, MenuConfig, ResultInfo, DataSource } from '../../lib/core';
+import { useDataSource } from '../../lib/core/data-source-context';
+import { DEFAULT_DATA_SOURCES } from '../../lib/core/data-sources';
 import { MENU_FULL_CONFIG } from '@/lib/menu-config';
-
-// 可用年份列表
-const AVAILABLE_YEARS = [
-  '2026', '2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018', '2017',
-  '2016', '2015', '2014', '2013', '2012', '2011', '2010', '2009', '2008',
-  '2007', '2006', '2005'
-];
 
 // 解析器映射
 const PARSER_MAP: Record<number, (titles: SubMenuConfig[], menuId: number, menuName: string) => CellValue[][][][]> = {
@@ -29,7 +25,7 @@ const PARSER_MAP: Record<number, (titles: SubMenuConfig[], menuId: number, menuN
   12: parse12,
 };
 
-// 解析结果缓存：key = `${year}_${menuId}`, value = ParsedData
+// 解析结果缓存：跨年视图下 key = `all_${menuId}`，单年视图（SimpleDataList 不用此缓存）保留年区分
 const parseCache = new Map<string, { data: CellValue[][][][]; timestamp: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5分钟缓存
 
@@ -70,7 +66,7 @@ function getCellStyle(cell: CellValue, isFixed = false): string {
 /**
  * 热门统计面板 - 紧凑可折叠
  */
-function StatisticsInfoPanel({ menuId, year, dataKey }: { menuId: number; year: string; dataKey?: number }) {
+function StatisticsInfoPanel({ menuId, dataKey }: { menuId: number; dataKey?: number }) {
   const [isOpen, setIsOpen] = useState(false); // 默认折叠
 
   // 获取统计数据并排序，使用 dataKey 确保数据更新时重新计算
@@ -117,11 +113,10 @@ function StatisticsInfoPanel({ menuId, year, dataKey }: { menuId: number; year: 
  * 数据表格组件 - 显示趋势图（带分页优化）
  * 支持固定左侧列和明显分割线
  */
-function AnalysisTable({ parsedData, titles, menuId, year }: {
+function AnalysisTable({ parsedData, titles, menuId }: {
   parsedData: CellValue[][][][];
   titles: SubMenuConfig[];
   menuId: number;
-  year: string;
 }) {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 100; // 每页显示100条
@@ -233,7 +228,10 @@ function AnalysisTable({ parsedData, titles, menuId, year }: {
                       <div className="flex flex-col items-center leading-tight">
                         <span className="leading-none">{colName}</span>
                         {stats && (
-                          <span className="text-[9px] text-orange-600 font-semibold leading-none mt-0.5">
+                          <span
+                            className="text-[9px] text-orange-600 font-semibold leading-none mt-0.5"
+                            suppressHydrationWarning
+                          >
                             {stats.gapCount ?? 0}/{stats.maxGapCount ?? 0}
                           </span>
                         )}
@@ -263,6 +261,17 @@ function AnalysisTable({ parsedData, titles, menuId, year }: {
             variant="ghost"
             size="sm"
             className="h-7 px-2 text-xs"
+            onClick={() => setCurrentPage(1)}
+            disabled={currentPage === 1}
+            aria-label="首页"
+            title="首页"
+          >
+            «
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs"
             onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
             disabled={currentPage === 1}
           >
@@ -280,12 +289,28 @@ function AnalysisTable({ parsedData, titles, menuId, year }: {
           >
             ›
           </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs"
+            onClick={() => setCurrentPage(totalPages)}
+            disabled={currentPage === totalPages}
+            aria-label="尾页"
+            title="尾页"
+          >
+            »
+          </Button>
           <select
             value={currentPage}
-            onChange={(e) => setCurrentPage(Number(e.target.value))}
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              if (Number.isFinite(v) && v >= 1 && v <= totalPages) {
+                setCurrentPage(v);
+              }
+            }}
             className="ml-1 px-1 py-0.5 text-xs bg-background border rounded"
           >
-            {Array.from({ length: Math.min(totalPages, 20) }, (_, i) => (
+            {Array.from({ length: totalPages }, (_, i) => (
               <option key={i + 1} value={i + 1}>
                 {i + 1}
               </option>
@@ -301,99 +326,129 @@ function AnalysisTable({ parsedData, titles, menuId, year }: {
 }
 
 /**
- * 分析面板组件 - 根据菜单ID解析数据（带缓存优化）
+ * 分析面板组件
+ *
+ * 支持两种统计模式：
+ *  - viewMode='year'（默认，gbb-3 原生）：按选中年份加载，stats 仅当年
+ *  - viewMode='all'（与 gbb-2 对齐）：拉 22 年合并，stats 跨 22 年累计
+ *
+ * viewMode 通过 prop 传入，由父组件切换。
  */
-function AnalysisPanel({ menuId, year, refreshKey }: { menuId: number; year: string; refreshKey?: number }) {
-  const { data, loading, error } = useLotteryData(year, refreshKey);
+function AnalysisPanel({
+  menuId,
+  year,
+  viewMode,
+  refreshKey,
+  source,
+  availableYears,
+}: {
+  menuId: number;
+  year: string;
+  viewMode: 'year' | 'all';
+  refreshKey?: number;
+  source: DataSource;
+  availableYears: string[];
+}) {
+  // 单年视图：拉当年数据；跨年视图：拉所有可用年份
+  const singleYear = useLotteryData(year, viewMode === 'year' ? refreshKey : undefined, source);
+  const allYears = useAllYearsData(viewMode === 'all' ? refreshKey : undefined, [...availableYears], source);
+
+  const { data, loading, error, perYearStatus, statsOk } = viewMode === 'all' ? allYears : {
+    data: singleYear.data,
+    loading: singleYear.loading,
+    error: singleYear.error,
+    perYearStatus: {} as Record<string, 'ok' | 'missing' | 'error'>,
+    statsOk: true,
+  };
+
   const [parsedData, setParsedData] = useState<CellValue[][][][] | null>(null);
   const [isParsing, setIsParsing] = useState(false);
   const currentDataVersionRef = useRef<number>(0);
 
-  // 使用 useCallback 避免重复创建解析函数
-  const parseData = useCallback(async (dataToParse: any[], targetMenuId: number, currentYear: string, dataVer: number) => {
-    const cacheKey = `${currentYear}_${targetMenuId}`;
+  const parseData = useCallback(
+    async (dataToParse: any[], targetMenuId: number, dataVer: number, cacheKey: string) => {
+      const cached = parseCache.get(cacheKey);
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        setParsedData(cached.data);
+        return;
+      }
 
-    // 验证数据年份是否匹配
-    const firstDataYear = dataToParse[0]?.id?.substring(0, 2);
-    const expectedYearPrefix = currentYear.slice(-2); // 2026 -> 26
+      setIsParsing(true);
 
-    // 如果数据年份与请求年份不匹配，直接丢弃不处理
-    if (firstDataYear && firstDataYear !== expectedYearPrefix) {
-      console.warn(`Data year mismatch: expected ${currentYear}, got ${firstDataYear}xx`);
-      parseCache.clear();
-      setParsedData(null);
-      return;
-    }
+      setTimeout(() => {
+        try {
+          // 单年视图：clear stats（保持原行为）；跨年视图：不 clear，让 stats 跨年累加
+          if (viewMode === 'year') {
+            statisticsManager.clear(targetMenuId);
+          }
+          dataLoader.loadFromArray(dataToParse);
 
-    const cached = parseCache.get(cacheKey);
+          const menuInfo = MENU_CONFIG[targetMenuId];
+          if (!menuInfo || !menuInfo.titles) {
+            setIsParsing(false);
+            return;
+          }
 
-    // 检查缓存是否有效
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-      setParsedData(cached.data);
-      return;
-    }
+          const parser = PARSER_MAP[targetMenuId];
+          if (parser) {
+            const menuName = menuInfo.name || `Menu${targetMenuId}`;
+            const result = parser(menuInfo.titles, targetMenuId, menuName);
 
-    // 使用 setTimeout 避免阻塞 UI
-    setIsParsing(true);
+            parseCache.set(cacheKey, {
+              data: result,
+              timestamp: Date.now(),
+            });
 
-    setTimeout(() => {
-      try {
-        statisticsManager.clear(targetMenuId);
-        dataLoader.loadFromArray(dataToParse);
-
-        const menuInfo = MENU_CONFIG[targetMenuId];
-        if (!menuInfo || !menuInfo.titles) {
-          setIsParsing(false);
-          return;
-        }
-
-        const parser = PARSER_MAP[targetMenuId];
-        if (parser) {
-          const menuName = menuInfo.name || `Menu${targetMenuId}`;
-          const result = parser(menuInfo.titles, targetMenuId, menuName);
-
-          parseCache.set(cacheKey, {
-            data: result,
-            timestamp: Date.now(),
-          });
-
+            if (currentDataVersionRef.current === dataVer) {
+              setParsedData(result);
+            }
+          }
+        } catch (err) {
+          console.error('Parse error:', err);
+        } finally {
           if (currentDataVersionRef.current === dataVer) {
-            setParsedData(result);
+            setIsParsing(false);
           }
         }
-      } catch (err) {
-        console.error('Parse error:', err);
-      } finally {
-        if (currentDataVersionRef.current === dataVer) {
-          setIsParsing(false);
-        }
-      }
-    }, 0);
-  }, []);
+      }, 0);
+    },
+    [viewMode]
+  );
 
-  // 年份变化时，清除该年份的所有解析缓存
+  // 用 ref 让 effect 拿到最新的 parseData，同时不把 parseData 当成 effect 依赖
+  // （否则 year 变化会让 parseData 引用变化、effect 重跑，并在 fetch 完成前用旧 data 写入新 cacheKey）
+  const parseDataRef = useRef(parseData);
+  parseDataRef.current = parseData;
+
+  // 切换菜单或 viewMode 时，清掉对应缓存
   useEffect(() => {
     for (const [key] of parseCache.entries()) {
-      if (key.startsWith(`${year}_`)) {
+      const prefix = viewMode === 'all' ? 'all_' : `${year}_`;
+      if (key.startsWith(prefix)) {
         parseCache.delete(key);
       }
     }
     setParsedData(null);
-  }, [year]);
+    // 同时让任何正在飞行的旧解析失效
+    currentDataVersionRef.current++;
+  }, [menuId, viewMode, year]);
 
-  // 当数据或菜单变化时，重新解析
+  // 当数据或菜单变化时，重新解析。
+  // 注意：依赖里不放 year 也不放 parseData——切年份时 fetch 完成、data 真正换新时才会触发，
+  // 避免在 fetch 完成前用旧 data 写错 cacheKey。
   useEffect(() => {
-    if (data.length > 0) {
+    if (data.length > 0 && statsOk) {
       currentDataVersionRef.current++;
       const dataVer = currentDataVersionRef.current;
-      parseData(data, menuId, year, dataVer);
+      const cacheKey = viewMode === 'all' ? `all_${menuId}` : `${year}_${menuId}`;
+      parseDataRef.current(data, menuId, dataVer, cacheKey);
     }
-  }, [data, menuId, year, parseData]);
+  }, [data, menuId, statsOk, viewMode]);
 
   if (loading) {
     return (
       <div className="p-4 text-center text-muted-foreground">
-        数据加载中...
+        {viewMode === 'all' ? '正在加载 22 年数据...' : '数据加载中...'}
       </div>
     );
   }
@@ -402,6 +457,25 @@ function AnalysisPanel({ menuId, year, refreshKey }: { menuId: number; year: str
     return (
       <div className="p-4 text-center text-destructive">
         错误: {error}
+      </div>
+    );
+  }
+
+  // 跨年模式下，如果拉数据不足，显示警告（单年模式不会进这里，因为 statsOk=true）
+  if (viewMode === 'all' && !statsOk) {
+    const failedYears = Object.entries(perYearStatus)
+      .filter(([, s]) => s !== 'ok')
+      .map(([y]) => y);
+    return (
+      <div className="p-4 text-center text-amber-700 bg-amber-50 border border-amber-200 rounded">
+        <div className="font-medium">跨年数据加载不完整</div>
+        <div className="text-xs mt-1">
+          仅 {Object.values(perYearStatus).filter(s => s === 'ok').length}/22 年成功
+          {failedYears.length > 0 && `（缺失: ${failedYears.join(', ')}）`}
+        </div>
+        <div className="text-xs mt-2 text-muted-foreground">
+          切回"按年份"模式可暂用当前年份数据
+        </div>
       </div>
     );
   }
@@ -428,14 +502,14 @@ function AnalysisPanel({ menuId, year, refreshKey }: { menuId: number; year: str
     <div className="h-full flex flex-col">
       <div className="flex-1 overflow-auto p-2">
         <AnalysisTable
+          key={`${viewMode}_${menuId}_${year}`}
           parsedData={parsedData}
           titles={menuInfo.titles}
           menuId={menuId}
-          year={year}
         />
       </div>
       <div className="flex-shrink-0 px-2 pb-1">
-        <StatisticsInfoPanel menuId={menuId} year={year} dataKey={parsedData?.length} />
+        <StatisticsInfoPanel menuId={menuId} dataKey={parsedData?.length} />
       </div>
     </div>
   );
@@ -445,11 +519,31 @@ function AnalysisPanel({ menuId, year, refreshKey }: { menuId: number; year: str
  * 带年份选择和分析功能的主视图
  */
 export function AnalysisView() {
-  const [year, setYear] = useState('2025');
+  const { source, availableYears, setSourceId, addYears } = useDataSource();
+  const [year, setYear] = useState<string>(availableYears[0]);
   const [activeMenu, setActiveMenu] = useState<number>(1);
   const [isFetching, setIsFetching] = useState(false);
   const [fetchMessage, setFetchMessage] = useState('');
   const [dataUpdateKey, setDataUpdateKey] = useState(0); // 用于强制刷新数据
+  const [viewMode, setViewMode] = useState<'year' | 'all'>('year'); // 默认按年份（gbb-3 原生行为）
+
+  /**
+   * 切换数据源：清空缓存 + 重置视图状态 + 强制刷新
+   */
+  const handleSourceChange = (newId: string) => {
+    setSourceId(newId as DataSource['id']);
+    parseCache.clear();
+    statisticsManager.clearAll();
+    dataLoader.clear();
+    const newSource = DEFAULT_DATA_SOURCES.find((s) => s.id === newId);
+    if (newSource) {
+      // 用新 source 的注册年份（不混用旧 source 的 discovered years）
+      setYear(newSource.years[0]);
+      setViewMode('year');
+    }
+    setActiveMenu(1);
+    setDataUpdateKey((k) => k + 1);
+  };
 
   // 处理更新数据（自动包含补全断层）
   const handleFetchData = async () => {
@@ -458,7 +552,7 @@ export function AnalysisView() {
 
     try {
       // 调用更新接口
-      const response = await fetch(`/api/fetch?pageSize=300&save=true`);
+      const response = await fetch(`/api/fetch?pageSize=100&save=true&source=${source.id}`);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
@@ -502,8 +596,9 @@ export function AnalysisView() {
 
       setFetchMessage(message);
 
-      // 如果有新年份，自动切换到最新年份
+      // 如果有新年份，把它们注册到当前 source 的 discovered years 列表里（去重+降序+持久化）
       if (years.length > 0) {
+        addYears(years);
         const latestYear = years[0];
         if (latestYear > year) {
           setYear(latestYear);
@@ -526,9 +621,42 @@ export function AnalysisView() {
   };
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div className="h-full flex flex-col overflow-hidden" suppressHydrationWarning>
       {/* 顶部栏：年份选择和菜单 */}
       <div className="flex-shrink-0 flex flex-wrap items-center gap-3 p-3 bg-muted border-b">
+        {/* 数据源选择器 */}
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">数据源:</span>
+          <Select.Root value={source.id} onValueChange={handleSourceChange}>
+            <Select.Trigger
+              aria-label="数据源"
+              className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-background border rounded-md min-w-[120px]"
+            >
+              <Select.Value />
+              <Select.Icon>▾</Select.Icon>
+            </Select.Trigger>
+            <Select.Portal>
+              <Select.Content
+                position="popper"
+                sideOffset={4}
+                className="z-[100] bg-popover text-popover-foreground border rounded-md shadow-lg min-w-[140px]"
+              >
+                <Select.Viewport className="p-1">
+                  {DEFAULT_DATA_SOURCES.map((s) => (
+                    <Select.Item
+                      key={s.id}
+                      value={s.id}
+                      className="text-sm px-3 py-1.5 rounded cursor-pointer outline-none data-[highlighted]:bg-muted"
+                    >
+                      <Select.ItemText>{s.label}</Select.ItemText>
+                    </Select.Item>
+                  ))}
+                </Select.Viewport>
+              </Select.Content>
+            </Select.Portal>
+          </Select.Root>
+        </div>
+
         {/* 年份选择器 */}
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">年份:</span>
@@ -537,10 +665,35 @@ export function AnalysisView() {
             onChange={(e) => setYear(e.target.value)}
             className="px-3 py-1.5 text-sm bg-background border rounded-md"
           >
-            {AVAILABLE_YEARS.map(y => (
+            {availableYears.map(y => (
               <option key={y} value={y}>{y}年</option>
             ))}
           </select>
+        </div>
+
+        {/* 统计模式开关 */}
+        <div className="flex items-center gap-2 px-2 py-1 bg-background border rounded-md">
+          <span className="text-xs text-muted-foreground">统计窗口:</span>
+          <button
+            onClick={() => setViewMode('year')}
+            className={`px-2 py-0.5 text-xs rounded ${
+              viewMode === 'year'
+                ? 'bg-blue-600 text-white'
+                : 'bg-transparent text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            按年份
+          </button>
+          <button
+            onClick={() => setViewMode('all')}
+            className={`px-2 py-0.5 text-xs rounded ${
+              viewMode === 'all'
+                ? 'bg-blue-600 text-white'
+                : 'bg-transparent text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            {availableYears.length}年跨年
+          </button>
         </div>
 
         {/* 菜单按钮 */}
@@ -590,12 +743,12 @@ export function AnalysisView() {
               <h2 className="text-sm font-bold">{year}年 开奖数据</h2>
             </div>
             <div className="flex-1 overflow-auto border rounded">
-              <SimpleDataList year={year} refreshKey={dataUpdateKey} />
+              <SimpleDataList year={year} refreshKey={dataUpdateKey} source={source} />
             </div>
           </div>
         ) : (
           <div className="h-full overflow-auto">
-            <AnalysisPanel menuId={activeMenu} year={year} refreshKey={dataUpdateKey} />
+            <AnalysisPanel menuId={activeMenu} year={year} viewMode={viewMode} refreshKey={dataUpdateKey} source={source} availableYears={availableYears} />
           </div>
         )}
       </div>
@@ -606,8 +759,8 @@ export function AnalysisView() {
 /**
  * 简化版数据列表组件 - 带固定列和明显分割线
  */
-function SimpleDataList({ year, refreshKey }: { year: string; refreshKey?: number }) {
-  const { data, loading, error } = useLotteryData(year, refreshKey);
+function SimpleDataList({ year, refreshKey, source }: { year: string; refreshKey?: number; source: DataSource }) {
+  const { data, loading, error } = useLotteryData(year, refreshKey, source);
 
   // 数据按日期从小到大排序
   const sortedData = useMemo(() => [...data], [data]);

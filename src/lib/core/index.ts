@@ -50,3 +50,13 @@ export { dataLoader, DataLoader } from './utils/data-loader';
 
 // 文件工具
 export { FileUtil } from './utils/file-util';
+
+// 多数据源注册中心 + React Context
+export {
+  DEFAULT_DATA_SOURCES,
+  DEFAULT_DATA_SOURCE_ID,
+  getDataSource,
+  getGiteeBases,
+} from './data-sources';
+export type { DataSource, DataSourceId } from './data-sources';
+export { DataSourceProvider, useDataSource } from './data-source-context';

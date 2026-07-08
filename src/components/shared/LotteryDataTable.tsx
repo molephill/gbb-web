@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useLotteryData } from '@/lib/hooks';
+import { useDataSource } from '../../lib/core/data-source-context';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface LotteryDataTableProps {
@@ -13,7 +14,8 @@ interface LotteryDataTableProps {
  * 彩票数据表格组件
  */
 export function LotteryDataTable({ year, limit }: LotteryDataTableProps) {
-  const { data, loading, error } = useLotteryData(year);
+  const { source } = useDataSource();
+  const { data, loading, error } = useLotteryData(year, undefined, source);
 
   // 显示数据（限制数量）
   const displayData = useMemo(() => {
